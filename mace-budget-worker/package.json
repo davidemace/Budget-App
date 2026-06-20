@@ -1,0 +1,15 @@
+{
+  "name": "mace-budget-worker",
+  "version": "1.0.0",
+  "description": "Budget application worker",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "jest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "wrangler": "latest"
+  }
+}
