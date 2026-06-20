@@ -1,4 +1,4 @@
-name = "mace-budget-worker"
+name = "budgetapp"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
