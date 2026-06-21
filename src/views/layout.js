@@ -22,6 +22,13 @@ export function jsonResponse(data, status = 200) {
   });
 }
 
+export function redirectResponse(path) {
+  return new Response(null, {
+    status: 303,
+    headers: { location: path }
+  });
+}
+
 export function notFoundResponse() {
   return htmlResponse({
     title: 'Not Found',

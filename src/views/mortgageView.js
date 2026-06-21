@@ -1,4 +1,4 @@
-import { centsToDollars, monthlyMortgagePayment, sumBy } from '../services/money.js';
+import { centsToDollars, inputDollars, monthlyMortgagePayment, sumBy } from '../services/money.js';
 import { enrichCards, readinessStatus } from '../services/recommendations.js';
 import { pageHeader, progressBar, statCard } from './components.js';
 import { escapeHtml } from './layout.js';
@@ -57,8 +57,10 @@ export function renderMortgage(model) {
         <p class="eyebrow">${escapeHtml(scenario.name)}</p>
         <h3>${centsToDollars(scenario.monthlyTotal)} / mo</h3>
         <dl><div><dt>Home price</dt><dd>${centsToDollars(scenario.home_price_cents)}</dd></div><div><dt>Down payment</dt><dd>${centsToDollars(scenario.down_payment_cents)}</dd></div><div><dt>Rate</dt><dd>${Number(scenario.rate).toFixed(2)}%</dd></div><div><dt>Principal + interest</dt><dd>${centsToDollars(scenario.principalInterest)}</dd></div></dl>
+        ${scenarioForm(scenario)}
       </article>`).join('')}</div>
-    </section>`;
+    </section>
+    <section class="panel"><h2>Add scenario</h2>${scenarioForm({ id: '', name: '', home_price_cents: 0, down_payment_cents: 0, rate: 6.75, term_years: 30, annual_tax_cents: 0, annual_insurance_cents: 0, monthly_hoa_cents: 0 }, true)}</section>`;
 }
 
 function goalBlock(goal = {}) {
@@ -68,4 +70,18 @@ function goalBlock(goal = {}) {
 
 function progress(goal = {}) {
   return goal.target_cents > 0 ? Math.min(100, (goal.current_cents / goal.target_cents) * 100) : 0;
+}
+
+function scenarioForm(scenario, isNew = false) {
+  return `<form class="edit-row scenario-form" method="post" action="${isNew ? '/mortgage' : `/mortgage/${scenario.id}`}">
+    <div class="field wide"><label>Name</label><input name="name" value="${escapeHtml(scenario.name)}" required></div>
+    <div class="field"><label>Price</label><input name="home_price" inputmode="decimal" value="${inputDollars(scenario.home_price_cents)}"></div>
+    <div class="field"><label>Down</label><input name="down_payment" inputmode="decimal" value="${inputDollars(scenario.down_payment_cents)}"></div>
+    <div class="field"><label>Rate</label><input name="rate" inputmode="decimal" value="${Number(scenario.rate || 0).toFixed(2)}"></div>
+    <div class="field"><label>Years</label><input name="term_years" type="number" value="${Number(scenario.term_years || 30)}"></div>
+    <div class="field"><label>Annual tax</label><input name="annual_tax" inputmode="decimal" value="${inputDollars(scenario.annual_tax_cents)}"></div>
+    <div class="field"><label>Annual ins.</label><input name="annual_insurance" inputmode="decimal" value="${inputDollars(scenario.annual_insurance_cents)}"></div>
+    <div class="field"><label>HOA/mo</label><input name="monthly_hoa" inputmode="decimal" value="${inputDollars(scenario.monthly_hoa_cents)}"></div>
+    <button type="submit">${isNew ? 'Add scenario' : 'Save'}</button>
+  </form>`;
 }

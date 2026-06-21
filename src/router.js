@@ -1,11 +1,11 @@
 import { styles } from './styles/app.css.js';
 import { htmlResponse, jsonResponse, notFoundResponse } from './views/layout.js';
 import { getDashboard, dashboardApi } from './routes/dashboard.js';
-import { getBudget, budgetApi } from './routes/budget.js';
-import { getCards, cardsApi } from './routes/cards.js';
-import { getPaycheck, paycheckApi } from './routes/paycheck.js';
-import { getMortgage, mortgageApi } from './routes/mortgage.js';
-import { getGoals, goalsApi } from './routes/goals.js';
+import { createBill, createBudgetCategory, getBudget, budgetApi, updateBill, updateBudgetCategory } from './routes/budget.js';
+import { createCard, getCards, cardsApi, updateCard } from './routes/cards.js';
+import { createPaycheck, getPaycheck, paycheckApi, updatePaycheck } from './routes/paycheck.js';
+import { createMortgageScenario, getMortgage, mortgageApi, updateMortgageScenario } from './routes/mortgage.js';
+import { createGoal, getGoals, goalsApi, updateGoal } from './routes/goals.js';
 
 const pageRoutes = [
   ['GET', '/', getDashboard],
@@ -15,6 +15,21 @@ const pageRoutes = [
   ['GET', '/paycheck', getPaycheck],
   ['GET', '/mortgage', getMortgage],
   ['GET', '/goals', getGoals]
+];
+
+const formRoutes = [
+  ['POST', '/budget/categories', createBudgetCategory],
+  ['POST', '/budget/categories/:id', updateBudgetCategory],
+  ['POST', '/budget/bills', createBill],
+  ['POST', '/budget/bills/:id', updateBill],
+  ['POST', '/cards', createCard],
+  ['POST', '/cards/:id', updateCard],
+  ['POST', '/paycheck', createPaycheck],
+  ['POST', '/paycheck/:id', updatePaycheck],
+  ['POST', '/mortgage', createMortgageScenario],
+  ['POST', '/mortgage/:id', updateMortgageScenario],
+  ['POST', '/goals', createGoal],
+  ['POST', '/goals/:id', updateGoal]
 ];
 
 const apiRoutes = [
@@ -41,9 +56,16 @@ export async function routeRequest(request, env) {
       return jsonResponse(data);
     }
 
+    const formMatch = matchRoute(formRoutes, request.method, url.pathname);
+    if (formMatch) {
+      const response = await formMatch.handler({ request, env, params: formMatch.params, url });
+      return response;
+    }
+
     const pageMatch = matchRoute(pageRoutes, request.method, url.pathname);
     if (pageMatch) {
       const page = await pageMatch.handler({ request, env, params: pageMatch.params, url });
+      if (page instanceof Response) return page;
       return htmlResponse(page);
     }
 

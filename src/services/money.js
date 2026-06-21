@@ -10,6 +10,16 @@ export function dollars(cents = 0) {
   return Number(cents || 0) / 100;
 }
 
+export function centsFromDollars(value = 0) {
+  const normalized = String(value ?? '').replace(/[$,\s]/g, '');
+  if (!normalized) return 0;
+  return Math.round(Number(normalized) * 100);
+}
+
+export function inputDollars(cents = 0) {
+  return (Number(cents || 0) / 100).toFixed(2);
+}
+
 export function percent(value = 0, digits = 1) {
   return `${Number(value || 0).toFixed(digits)}%`;
 }

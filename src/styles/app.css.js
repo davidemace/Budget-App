@@ -154,12 +154,95 @@ dl { display: grid; gap: 8px; margin: 0; }
 dl div { display: flex; justify-content: space-between; gap: 12px; }
 dt, dd { margin: 0; }
 
+input, select, textarea, button { font: inherit; }
+input, select, textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ink);
+}
+label {
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: var(--muted);
+}
+button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: var(--accent);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+button:hover { background: #115e59; }
+.edit-list {
+  display: grid;
+  gap: 12px;
+}
+.edit-row, .edit-card {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+.edit-row {
+  grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(110px, 1fr)) auto;
+}
+.budget-row {
+  grid-template-columns: minmax(180px, 1.5fr) minmax(120px, 0.8fr) repeat(3, minmax(100px, 1fr)) auto;
+}
+.bill-row {
+  grid-template-columns: minmax(180px, 1.6fr) 80px minmax(110px, 1fr) minmax(120px, 1fr) auto auto;
+}
+.paycheck-row, .scenario-form, .goal-row {
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+}
+.edit-card {
+  grid-template-columns: minmax(190px, 1.6fr) repeat(5, minmax(105px, 1fr)) auto;
+}
+.field {
+  display: grid;
+  gap: 5px;
+}
+.field.full, .target-strip {
+  grid-column: 1 / -2;
+}
+.target-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+.check-field input {
+  width: auto;
+  min-height: auto;
+}
+
 @media (max-width: 900px) {
   body { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; }
   nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspace { padding: 22px; }
   .stats-grid, .scenario-grid, .goal-grid, .two-column, .scenario-row { grid-template-columns: 1fr; }
+  .edit-row, .edit-card, .budget-row, .bill-row, .paycheck-row, .scenario-form, .goal-row {
+    grid-template-columns: 1fr;
+  }
+  .field.full, .target-strip { grid-column: auto; }
   .panel { overflow-x: auto; }
 }
 `;
