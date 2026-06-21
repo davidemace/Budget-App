@@ -8,7 +8,7 @@ import {
   scoreFocusedRecommendation,
   utilization
 } from '../src/services/recommendations.js';
-import { allocatePaycheck, inferNextPaycheckDate, paycheckScheduleFor } from '../src/services/paycheckAllocation.js';
+import { allocatePaycheck, buildPaycheckForecast, inferNextPaycheckDate, paycheckScheduleFor } from '../src/services/paycheckAllocation.js';
 
 test('calculates utilization percentage', () => {
   assert.equal(utilization(45000, 100000), 45);
@@ -188,4 +188,36 @@ test('generates real paycheck cadence for McGraw and WISD', () => {
   assert.equal(inferNextPaycheckDate('2026-07-15', paychecks), '2026-07-24');
   assert.equal(inferNextPaycheckDate('2026-07-24', paychecks), '2026-07-31');
   assert.equal(inferNextPaycheckDate('2026-07-31', paychecks), '2026-08-15');
+});
+
+test('forecasts recurring income and expenses across paycheck windows', () => {
+  const paychecks = [
+    { name: 'McGraw Hill paycheck - 15th', pay_date: '2026-07-15', net_amount_cents: 230300 },
+    { name: 'McGraw Hill paycheck - last workday', pay_date: '2026-07-31', net_amount_cents: 230300 },
+    { name: 'WISD paycheck', pay_date: '2026-07-24', net_amount_cents: 240100 }
+  ];
+  const forecast = buildPaycheckForecast({
+    startDate: '2026-07-15',
+    paychecks,
+    bills: [
+      { name: 'Car insurance', due_day: 24, amount_cents: 14500 },
+      { name: 'Apple Card minimum', due_day: 5, amount_cents: 17000 }
+    ],
+    cards: [{ name: 'Apple Card', balance_cents: 100000, credit_limit_cents: 200000, minimum_payment_cents: 17000, apr: 20 }],
+    goals: [{ goal_type: 'emergency_fund', monthly_contribution_cents: 30000 }],
+    categories: [{ name: 'Groceries', category_type: 'variable', monthly_budget_cents: 90000, actual_spending_cents: 0 }],
+    windows: 4
+  });
+
+  assert.equal(forecast.windows.length, 4);
+  assert.deepEqual(forecast.windows.map((window) => `${window.payDate}:${window.nextPayDate}`), [
+    '2026-07-15:2026-07-24',
+    '2026-07-24:2026-07-31',
+    '2026-07-31:2026-08-15',
+    '2026-08-15:2026-08-24'
+  ]);
+  assert.equal(forecast.windows[1].allocation.requiredBillsTargetCents, 14500);
+  assert.equal(forecast.windows[2].allocation.cardMinimumsTargetCents, 17000);
+  assert.equal(forecast.months[0].incomeCents, 700700);
+  assert.equal(forecast.months[0].spendingEnvelopesCents, 90000);
 });

@@ -34,6 +34,31 @@ export function renderPaycheckView(model) {
     <td>${centsToDollars(envelope.amount_cents)}</td>
     <td>${centsToDollars(Math.max(0, envelope.monthly_budget_cents - envelope.actual_spending_cents))}</td>
   </tr>`);
+  const forecastRows = model.forecast.windows.map((window) => {
+    const savingsCents = window.allocation.downPaymentSavingsCents + window.allocation.emergencySavingsCents;
+    return `<tr>
+      <td><a href="/paycheck?amount=${moneyInput(window.allocation.amountCents)}&pay_date=${escapeHtml(window.payDate)}">${escapeHtml(window.source)}</a><br><small>${escapeHtml(window.payDate)} to ${escapeHtml(window.nextPayDate)}</small></td>
+      <td>${centsToDollars(window.allocation.amountCents)}</td>
+      <td>${centsToDollars(window.allocation.requiredBillsTargetCents)}</td>
+      <td>${centsToDollars(window.allocation.cardMinimumsTargetCents)}</td>
+      <td>${centsToDollars(window.allocation.spendingEnvelopesTargetCents)}</td>
+      <td>${centsToDollars(savingsCents)}</td>
+      <td>${centsToDollars(window.allocation.extraCardPaymentCents)}</td>
+      <td>${centsToDollars(window.allocation.unfundedPlanCents)}</td>
+    </tr>`;
+  });
+  const monthRows = model.forecast.months.map((month) => {
+    const coreOutflowCents = month.requiredBillsCents + month.cardMinimumsCents + month.spendingEnvelopesCents + month.savingsCents;
+    return `<tr>
+      <td>${escapeHtml(month.month)}</td>
+      <td>${centsToDollars(month.incomeCents)}</td>
+      <td>${centsToDollars(coreOutflowCents)}</td>
+      <td>${formatSignedDollars(month.corePlanMarginCents)}</td>
+      <td>${centsToDollars(month.extraCardPaymentCents)}</td>
+      <td>${centsToDollars(month.bufferCents)}</td>
+      <td>${centsToDollars(month.unfundedPlanCents)}</td>
+    </tr>`;
+  });
 
   return `${pageHeader('Paycheck Allocation Console', 'Turn the next paycheck into a clear plan before the money lands.', 'Paycheck planner')}
     <section class="command-hero paycheck-command">
@@ -101,6 +126,8 @@ export function renderPaycheckView(model) {
         <p>This plan allocates exactly ${centsToDollars(allocation.totalAllocatedCents)} of this paycheck. Card payment includes ${centsToDollars(allocation.cardMinimumsDueCents)} toward card minimums due before the next paycheck plus ${centsToDollars(allocation.extraCardPaymentCents)} in extra payoff. ${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
       `)}
     </div>
+    ${section('Paycheck Forecast', table(['Source / Window', 'Income', 'Bills', 'Card Mins', 'Spending', 'Savings', 'Extra Payoff', 'Unfunded'], forecastRows, 'No forecast windows available.'), 'flush')}
+    ${section('Monthly Forecast', table(['Month', 'Income', 'Known Outflow', 'Margin', 'Extra Payoff', 'Buffer', 'Unfunded'], monthRows, 'No monthly forecast available.'), 'flush')}
     <div class="grid two">
       ${section('Bills And Loans Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No non-card bills due in this paycheck window.'), 'flush')}
       ${section('Card Minimums Before Next Paycheck', table(['Card Minimum', 'Due Date', 'Amount'], cardMinimumRows, 'No card minimums due in this paycheck window.'), 'flush')}
@@ -146,6 +173,10 @@ function ledgerRow(label, amountCents, tone = '') {
     <span>${escapeHtml(label)}</span>
     <strong>${centsToDollars(amountCents)}</strong>
   </div>`;
+}
+
+function formatSignedDollars(cents = 0) {
+  return cents < 0 ? `-${centsToDollars(Math.abs(cents))}` : centsToDollars(cents);
 }
 
 function moneyInput(cents = 0) {

@@ -74,6 +74,38 @@ export function billsDueBetween(bills = [], payDate, nextPayDate) {
   return dueRows.sort((a, b) => a.due_date.localeCompare(b.due_date) || a.name.localeCompare(b.name));
 }
 
+export function buildPaycheckForecast({ startDate, bills = [], cards = [], goals = [], categories = [], paychecks = [], windows = 8 }) {
+  const scheduledPaychecks = paycheckScheduleFor(startDate, paychecks)
+    .filter((paycheck) => parseLocalDate(paycheck.pay_date) >= parseLocalDate(startDate))
+    .slice(0, windows + 1);
+
+  const forecastWindows = scheduledPaychecks.slice(0, windows).map((paycheck, index) => {
+    const nextPaycheck = scheduledPaychecks[index + 1];
+    const allocation = allocatePaycheck({
+      amountCents: paycheck.net_amount_cents,
+      payDate: paycheck.pay_date,
+      nextPayDate: nextPaycheck?.pay_date || inferNextPaycheckDate(paycheck.pay_date, paychecks),
+      bills,
+      cards,
+      goals,
+      categories,
+      paychecks
+    });
+
+    return {
+      source: paycheck.name,
+      payDate: paycheck.pay_date,
+      nextPayDate: allocation.nextPayDate,
+      allocation
+    };
+  });
+
+  return {
+    windows: forecastWindows,
+    months: forecastMonths(forecastWindows)
+  };
+}
+
 export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = [], cards = [], goals = [], categories = [], paychecks = [] }) {
   const resolvedNextPayDate = nextPayDate || inferNextPaycheckDate(payDate, paychecks);
   const allDueBills = billsDueBetween(bills, payDate, resolvedNextPayDate);
@@ -93,6 +125,7 @@ export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = []
     + spendingEnvelopesTargetCents
     + emergencyTargetCents
     + downPaymentTargetCents;
+  const corePlanMarginCents = amountCents - targetBaseCents;
 
   let remainingToAllocateCents = amountCents;
   const take = (targetCents) => {
@@ -145,11 +178,46 @@ export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = []
     extraCardPaymentCents,
     safeSpendingBufferCents: bufferCents,
     totalAllocatedCents,
+    idealPlanCents: targetBaseCents,
+    corePlanMarginCents,
     remainingCents: amountCents - totalAllocatedCents,
     unfundedPlanCents,
     priorityCard,
     isShortCents: unfundedPlanCents
   };
+}
+
+function forecastMonths(forecastWindows = []) {
+  const months = new Map();
+
+  for (const window of forecastWindows) {
+    const month = window.payDate.slice(0, 7);
+    const existing = months.get(month) || {
+      month,
+      incomeCents: 0,
+      requiredBillsCents: 0,
+      cardMinimumsCents: 0,
+      spendingEnvelopesCents: 0,
+      savingsCents: 0,
+      extraCardPaymentCents: 0,
+      bufferCents: 0,
+      unfundedPlanCents: 0,
+      corePlanMarginCents: 0
+    };
+
+    existing.incomeCents += window.allocation.amountCents;
+    existing.requiredBillsCents += window.allocation.requiredBillsTargetCents;
+    existing.cardMinimumsCents += window.allocation.cardMinimumsTargetCents;
+    existing.spendingEnvelopesCents += window.allocation.spendingEnvelopesTargetCents;
+    existing.savingsCents += window.allocation.downPaymentTargetCents + window.allocation.emergencyTargetCents;
+    existing.extraCardPaymentCents += window.allocation.extraCardPaymentCents;
+    existing.bufferCents += window.allocation.safeSpendingBufferCents;
+    existing.unfundedPlanCents += window.allocation.unfundedPlanCents;
+    existing.corePlanMarginCents += window.allocation.corePlanMarginCents;
+    months.set(month, existing);
+  }
+
+  return [...months.values()].sort((a, b) => a.month.localeCompare(b.month));
 }
 
 function variableSpendingEnvelopes(categories = [], payDate, paychecks = []) {

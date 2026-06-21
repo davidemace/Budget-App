@@ -1,7 +1,7 @@
 import { getBills, getBudgetCategories, getCreditCards, getPaychecks, getSavingsGoals, run } from '../db.js';
 import { formCents, formString } from '../services/forms.js';
 import { sumBy } from '../services/money.js';
-import { allocatePaycheck, nextScheduledPaycheck, paycheckScheduleFor } from '../services/paycheckAllocation.js';
+import { allocatePaycheck, buildPaycheckForecast, nextScheduledPaycheck, paycheckScheduleFor } from '../services/paycheckAllocation.js';
 import { renderPaycheckView } from '../views/paycheckView.js';
 
 export async function paycheck({ request, env, api }) {
@@ -38,12 +38,22 @@ export async function paycheck({ request, env, api }) {
     categories,
     paychecks
   });
+  const forecast = buildPaycheckForecast({
+    startDate: payDate,
+    bills,
+    cards,
+    goals,
+    categories,
+    paychecks,
+    windows: 9
+  });
 
   const model = {
     paychecks,
     bills,
     categories,
     allocation,
+    forecast,
     paycheckSchedule: paycheckScheduleFor(payDate, paychecks),
     monthlyIncomeCents: sumBy(paychecks, 'net_amount_cents'),
     plannedBillsCents: sumBy(paychecks, 'planned_bills_cents'),
