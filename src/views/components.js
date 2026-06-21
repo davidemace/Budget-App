@@ -1,23 +1,51 @@
-import { centsToDollars, percent } from '../services/money.js';
-import { escapeHtml } from './layout.js';
-
-export function pageHeader(kicker, title, copy) {
-  return `<header class="page-header"><p class="eyebrow">${escapeHtml(kicker)}</p><h1>${escapeHtml(title)}</h1><p>${escapeHtml(copy)}</p></header>`;
+export function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
-export function statCard(label, value, detail = '') {
-  return `<article class="stat-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</article>`;
+export function pageHeader(title, subtitle, eyebrow = '') {
+  return `<header class="page-header">
+    ${eyebrow ? `<span class="eyebrow">${escapeHtml(eyebrow)}</span>` : ''}
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+  </header>`;
 }
 
-export function progressBar(current, target) {
-  const progress = target > 0 ? Math.min(100, (current / target) * 100) : 0;
-  return `<div class="progress"><span style="width:${progress.toFixed(1)}%"></span></div><small>${percent(progress)} funded</small>`;
+export function metricCard(label, value, note = '', tone = '') {
+  return `<section class="card metric ${tone}">
+    <span>${escapeHtml(label)}</span>
+    <strong>${escapeHtml(value)}</strong>
+    ${note ? `<small>${escapeHtml(note)}</small>` : ''}
+  </section>`;
 }
 
-export function moneyCell(cents) {
-  return escapeHtml(centsToDollars(cents));
+export function section(title, body, className = '') {
+  return `<section class="card ${className}">
+    <h2>${escapeHtml(title)}</h2>
+    ${body}
+  </section>`;
 }
 
-export function emptyState(message) {
-  return `<section class="panel empty"><p>${escapeHtml(message)}</p></section>`;
+export function emptyState(text) {
+  return `<div class="card empty"><p>${escapeHtml(text)}</p></div>`;
+}
+
+export function progressBar(percent) {
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  return `<div class="progress"><span style="width:${safePercent.toFixed(1)}%"></span></div>`;
+}
+
+export function statusBadge(label) {
+  const key = String(label).toLowerCase().replaceAll(' ', '-');
+  return `<span class="badge ${key}">${escapeHtml(label)}</span>`;
+}
+
+export function table(headers, rows, emptyText) {
+  if (!rows.length) return emptyState(emptyText);
+  const head = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+  return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }

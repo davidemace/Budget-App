@@ -1,40 +1,44 @@
-# Mace Budget Worker
+# MACE Budget Worker
 
-A single-user Cloudflare Worker + D1 dashboard for monthly budgeting, credit-card payoff, utilization optimization, paycheck planning, savings goals, emergency fund progress, and mortgage readiness for a $320k-$380k home purchase range.
+A single-user Cloudflare Worker + D1 financial command center for monthly budgeting, credit-card payoff, utilization optimization, paycheck allocation, real spending actuals, savings goals, and home-buyer readiness for a $320k to $380k purchase range.
 
 ## Setup
 
-1. Install dependencies:
-   ```sh
-   npm install
-   ```
+```bash
+npm install
+```
 
-2. Create the D1 database:
-   ```sh
-   npx wrangler d1 create budget_db
-   ```
+Create the D1 database:
 
-3. Copy the returned database id into `wrangler.toml` under `database_id`.
+```bash
+npx wrangler d1 create mace-budget-db
+```
 
-4. Apply migrations locally:
-   ```sh
-   npm run db:migrate:local
-   ```
+Copy the returned `database_id` into `wrangler.toml`.
 
-5. Start local development:
-   ```sh
-   npm run dev
-   ```
+Apply migrations locally:
 
-6. Apply migrations remotely before deploy:
-   ```sh
-   npm run db:migrate:remote
-   ```
+```bash
+npm run db:migrate:local
+```
 
-7. Deploy:
-   ```sh
-   npm run deploy
-   ```
+Apply migrations remotely:
+
+```bash
+npm run db:migrate:remote
+```
+
+Run the app locally:
+
+```bash
+npm run dev
+```
+
+Deploy:
+
+```bash
+npm run deploy
+```
 
 ## Project Structure
 
@@ -64,48 +68,42 @@ src/
     goalsView.js
   styles/
     app.css.js
-migrations/
-  0001_initial.sql
-  0002_seed.sql
-test/
-  recommendations.test.js
 ```
 
-## Routes
+## Data Model
 
-- `/` and `/dashboard`
-- `/budget`
-- `/cards`
-- `/paycheck`
-- `/mortgage`
-- `/goals`
-- `/api/dashboard`
-- `/api/budget`
-- `/api/cards`
-- `/api/cards/:id`
-- `/api/paycheck`
-- `/api/mortgage`
-- `/api/goals`
+Migrations create these D1 tables:
 
-## Notes
+- `budget_categories`
+- `credit_cards`
+- `paychecks`
+- `bills`
+- `spending_entries`
+- `savings_goals`
+- `mortgage_scenarios`
+- `payment_plan_entries`
 
-- The app uses Cloudflare Workers ES module syntax only.
-- D1 is accessed through `env.DB`.
-- There is no login, registration, JWT, or hardcoded auth secret. This is intentionally single-user until the core planning workflow is solid.
-- The custom domain route `budget.davidmace.us` is retained in `wrangler.toml`.
+Seed data is realistic starter planning data for budgeting, spending actuals, card payoff, down payment savings, emergency fund progress, and mortgage scenarios.
+
+## Phase 2 Features
+
+- Paycheck allocation engine that finds bills due before the next paycheck and recommends buckets for bills, card payments, down payment savings, emergency savings, and safe spending.
+- Credit-card payment simulation showing new balance, utilization, and crossed 89%, 49%, 29%, or 9% thresholds before recording a payment.
+- CRUD forms for credit cards, bills, budget categories, savings goals, and mortgage scenarios.
+- Budget actuals through `spending_entries`, with planned vs actual vs remaining on the budget page.
+- Dashboard Next Best Move panel using score-focused and interest-focused recommendations.
 
 ## Tests
 
-```sh
+```bash
 npm test
 ```
 
-The current tests cover credit utilization, payment amounts needed to reach 49%, 29%, and 9%, and score-focused versus interest-focused recommendation priority.
+The current tests cover utilization calculations, target payments for 49%, 29%, and 9%, and recommendation priority.
 
 ## Known Next Steps
 
-- Add create/update forms for cards, bills, paychecks, and savings goals.
-- Add import/export for account snapshots.
-- Add optional authentication after the Worker and D1 flows are stable.
-- Add richer mortgage assumptions for PMI, property tax rates, and homeowners insurance.
-- Add a payoff timeline view using `payment_plan_entries`.
+- Add edit forms for cards, bills, paychecks, categories, and goals.
+- Add CSV import/export for transaction and balance updates.
+- Add optional authentication only after the single-user dashboard is stable.
+- Expand payment-plan generation into a month-by-month payoff schedule.

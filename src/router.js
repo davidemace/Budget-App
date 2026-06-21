@@ -1,121 +1,149 @@
 import { styles } from './styles/app.css.js';
-import { htmlResponse, jsonResponse, notFoundResponse } from './views/layout.js';
-import { getDashboard, dashboardApi } from './routes/dashboard.js';
-import { createBill, createBudgetCategory, getBudget, budgetApi, updateBill, updateBudgetCategory } from './routes/budget.js';
-import { createCard, getCards, cardsApi, updateCard } from './routes/cards.js';
-import { createPaycheck, getPaycheck, paycheckApi, updatePaycheck } from './routes/paycheck.js';
-import { createMortgageScenario, getMortgage, mortgageApi, updateMortgageScenario } from './routes/mortgage.js';
-import { createGoal, getGoals, goalsApi, updateGoal } from './routes/goals.js';
+import { renderLayout } from './views/layout.js';
+import { dashboard } from './routes/dashboard.js';
+import { budget } from './routes/budget.js';
+import { cards } from './routes/cards.js';
+import { paycheck } from './routes/paycheck.js';
+import { mortgage } from './routes/mortgage.js';
+import { goals } from './routes/goals.js';
 
 const pageRoutes = [
-  ['GET', '/', getDashboard],
-  ['GET', '/dashboard', getDashboard],
-  ['GET', '/budget', getBudget],
-  ['GET', '/cards', getCards],
-  ['GET', '/paycheck', getPaycheck],
-  ['GET', '/mortgage', getMortgage],
-  ['GET', '/goals', getGoals]
-];
-
-const formRoutes = [
-  ['POST', '/budget/categories', createBudgetCategory],
-  ['POST', '/budget/categories/:id', updateBudgetCategory],
-  ['POST', '/budget/bills', createBill],
-  ['POST', '/budget/bills/:id', updateBill],
-  ['POST', '/cards', createCard],
-  ['POST', '/cards/:id', updateCard],
-  ['POST', '/paycheck', createPaycheck],
-  ['POST', '/paycheck/:id', updatePaycheck],
-  ['POST', '/mortgage', createMortgageScenario],
-  ['POST', '/mortgage/:id', updateMortgageScenario],
-  ['POST', '/goals', createGoal],
-  ['POST', '/goals/:id', updateGoal]
+  route('GET', '/', dashboard),
+  route('GET', '/budget', budget),
+  route('POST', '/budget', budget),
+  route('GET', '/cards', cards),
+  route('POST', '/cards', cards),
+  route('GET', '/paycheck', paycheck),
+  route('POST', '/paycheck', paycheck),
+  route('GET', '/mortgage', mortgage),
+  route('POST', '/mortgage', mortgage),
+  route('GET', '/goals', goals),
+  route('POST', '/goals', goals)
 ];
 
 const apiRoutes = [
-  ['GET', '/api/dashboard', dashboardApi],
-  ['GET', '/api/budget', budgetApi],
-  ['GET', '/api/cards', cardsApi],
-  ['GET', '/api/cards/:id', cardsApi],
-  ['GET', '/api/paycheck', paycheckApi],
-  ['GET', '/api/mortgage', mortgageApi],
-  ['GET', '/api/goals', goalsApi]
+  route('GET', '/api/dashboard', dashboard),
+  route('GET', '/api/budget', budget),
+  route('GET', '/api/cards', cards),
+  route('GET', '/api/cards/:id', cards),
+  route('GET', '/api/paycheck', paycheck),
+  route('GET', '/api/mortgage', mortgage),
+  route('GET', '/api/goals', goals)
 ];
 
-export async function routeRequest(request, env) {
-  const url = new URL(request.url);
+function route(method, pattern, handler) {
+  const keys = [];
+  const source = pattern
+    .split('/')
+    .map((part) => {
+      if (part.startsWith(':')) {
+        keys.push(part.slice(1));
+        return '([^/]+)';
+      }
+      return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    })
+    .join('/');
 
-  try {
-    if (request.method === 'GET' && url.pathname === '/styles.css') {
-      return new Response(styles, { headers: { 'content-type': 'text/css; charset=utf-8' } });
-    }
-
-    const apiMatch = matchRoute(apiRoutes, request.method, url.pathname);
-    if (apiMatch) {
-      const data = await apiMatch.handler({ request, env, params: apiMatch.params, url });
-      return jsonResponse(data);
-    }
-
-    const formMatch = matchRoute(formRoutes, request.method, url.pathname);
-    if (formMatch) {
-      const response = await formMatch.handler({ request, env, params: formMatch.params, url });
-      return response;
-    }
-
-    const pageMatch = matchRoute(pageRoutes, request.method, url.pathname);
-    if (pageMatch) {
-      const page = await pageMatch.handler({ request, env, params: pageMatch.params, url });
-      if (page instanceof Response) return page;
-      return htmlResponse(page);
-    }
-
-    if (url.pathname.startsWith('/api/')) {
-      return jsonResponse({ error: 'Not found' }, 404);
-    }
-
-    return notFoundResponse();
-  } catch (error) {
-    console.error(error);
-    const message = error?.message || 'Unexpected server error';
-    if (url.pathname.startsWith('/api/')) {
-      return jsonResponse({ error: message }, 500);
-    }
-    return htmlResponse({
-      title: 'Something went wrong',
-      body: `<section class="panel"><h1>Something went wrong</h1><p>${escapeHtml(message)}</p></section>`
-    }, 500);
-  }
+  return {
+    method,
+    pattern,
+    handler,
+    regex: new RegExp(`^${source}/?$`),
+    keys
+  };
 }
 
 function matchRoute(routes, method, pathname) {
-  for (const [routeMethod, pattern, handler] of routes) {
-    if (routeMethod !== method) continue;
-    const params = matchPattern(pattern, pathname);
-    if (params) return { handler, params };
+  for (const candidate of routes) {
+    if (candidate.method !== method) continue;
+    const match = pathname.match(candidate.regex);
+    if (!match) continue;
+    const params = Object.fromEntries(candidate.keys.map((key, index) => [key, decodeURIComponent(match[index + 1])]));
+    return { handler: candidate.handler, params, pattern: candidate.pattern };
   }
+
   return null;
 }
 
-function matchPattern(pattern, pathname) {
-  const patternParts = pattern.split('/').filter(Boolean);
-  const pathParts = pathname.split('/').filter(Boolean);
-  if (patternParts.length !== pathParts.length) return null;
+function html(body, status = 200) {
+  return new Response(body, {
+    status,
+    headers: { 'content-type': 'text/html; charset=utf-8' }
+  });
+}
 
-  const params = {};
-  for (let i = 0; i < patternParts.length; i += 1) {
-    const expected = patternParts[i];
-    const actual = decodeURIComponent(pathParts[i]);
-    if (expected.startsWith(':')) {
-      params[expected.slice(1)] = actual;
-    } else if (expected !== actual) {
-      return null;
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8' }
+  });
+}
+
+function redirect(location) {
+  return new Response(null, {
+    status: 303,
+    headers: { location }
+  });
+}
+
+function errorPayload(error, status) {
+  return {
+    error: {
+      status,
+      message: error?.message || 'Something went wrong.'
+    }
+  };
+}
+
+export async function handleRequest(request, env) {
+  const url = new URL(request.url);
+
+  if (request.method === 'GET' && url.pathname === '/styles.css') {
+    return new Response(styles, {
+      headers: {
+        'content-type': 'text/css; charset=utf-8',
+        'cache-control': 'public, max-age=300'
+      }
+    });
+  }
+
+  if (url.pathname.startsWith('/api/')) {
+    const matched = matchRoute(apiRoutes, request.method, url.pathname);
+    if (!matched) return json(errorPayload(new Error('API route not found.'), 404), 404);
+
+    try {
+      const result = await matched.handler({ request, env, params: matched.params, api: true });
+      return json(result.data ?? result);
+    } catch (error) {
+      const status = error.status || 500;
+      return json(errorPayload(error, status), status);
     }
   }
-  return params;
+
+  const matched = matchRoute(pageRoutes, request.method, url.pathname);
+  if (!matched) {
+    return html(renderLayout({
+      title: 'Not Found',
+      path: url.pathname,
+      body: '<section class="page-header"><h1>Page not found</h1><p>The requested page does not exist.</p></section>'
+    }), 404);
+  }
+
+  try {
+    const page = await matched.handler({ request, env, params: matched.params, api: false });
+    if (page.redirect) return redirect(page.redirect);
+    return html(renderLayout({ ...page, path: url.pathname }));
+  } catch (error) {
+    return html(renderLayout({
+      title: 'Error',
+      path: url.pathname,
+      body: `<section class="page-header"><h1>Something went wrong</h1><p>${escapeHtml(error.message)}</p></section>`
+    }), error.status || 500);
+  }
 }
 
 function escapeHtml(value) {
-  return String(value)
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
