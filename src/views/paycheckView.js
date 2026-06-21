@@ -59,6 +59,7 @@ export function renderPaycheckView(model) {
       <td>${centsToDollars(month.unfundedPlanCents)}</td>
     </tr>`;
   });
+  const forecastSummary = summarizeForecast(model.forecast.windows);
 
   return `${pageHeader('Paycheck Allocation Console', 'Turn the next paycheck into a clear plan before the money lands.', 'Paycheck planner')}
     <section class="command-hero paycheck-command">
@@ -87,11 +88,11 @@ export function renderPaycheckView(model) {
       </div>
     </section>
 
-    <div class="grid metrics">
-      ${metricCard('Monthly Paychecks', centsToDollars(model.monthlyIncomeCents), 'Planned net income')}
-      ${metricCard('Bills Allocation', centsToDollars(model.plannedBillsCents), 'From paycheck plans')}
-      ${metricCard('Debt Allocation', centsToDollars(model.plannedDebtCents), 'Extra payoff plus minimums')}
-      ${metricCard('Savings Allocation', centsToDollars(model.plannedSavingsCents), 'Down payment and emergency fund')}
+    <div class="forecast-summary">
+      ${forecastCard('Projected Income', forecastSummary.incomeCents, 'Upcoming forecast windows', 'income')}
+      ${forecastCard('Known Outflow', forecastSummary.knownOutflowCents, 'Bills, mins, spending, savings', 'outflow')}
+      ${forecastCard('Available Margin', forecastSummary.marginCents, 'Before extra payoff and buffer', forecastSummary.marginCents >= 0 ? 'good' : 'danger')}
+      ${forecastCard('Extra Payoff', forecastSummary.extraPayoffCents, 'Projected card acceleration', 'payoff')}
     </div>
 
     <div class="paycheck-board">
@@ -173,6 +174,35 @@ function ledgerRow(label, amountCents, tone = '') {
     <span>${escapeHtml(label)}</span>
     <strong>${centsToDollars(amountCents)}</strong>
   </div>`;
+}
+
+function forecastCard(label, amountCents, note, tone) {
+  return `<article class="forecast-card ${escapeHtml(tone)}">
+    <span>${escapeHtml(label)}</span>
+    <strong>${formatSignedDollars(amountCents)}</strong>
+    <small>${escapeHtml(note)}</small>
+  </article>`;
+}
+
+function summarizeForecast(windows = []) {
+  return windows.reduce((summary, window) => {
+    const knownOutflowCents = window.allocation.requiredBillsTargetCents
+      + window.allocation.cardMinimumsTargetCents
+      + window.allocation.spendingEnvelopesTargetCents
+      + window.allocation.downPaymentTargetCents
+      + window.allocation.emergencyTargetCents;
+
+    summary.incomeCents += window.allocation.amountCents;
+    summary.knownOutflowCents += knownOutflowCents;
+    summary.marginCents += window.allocation.corePlanMarginCents;
+    summary.extraPayoffCents += window.allocation.extraCardPaymentCents;
+    return summary;
+  }, {
+    incomeCents: 0,
+    knownOutflowCents: 0,
+    marginCents: 0,
+    extraPayoffCents: 0
+  });
 }
 
 function formatSignedDollars(cents = 0) {
