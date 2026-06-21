@@ -1,8 +1,9 @@
 export function centsToDollars(cents = 0) {
-  return Number(cents || 0).toLocaleString('en-US', {
+  return (Number(cents || 0) / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: 0
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
 }
 
