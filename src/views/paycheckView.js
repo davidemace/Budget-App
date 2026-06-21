@@ -37,7 +37,7 @@ export function renderPaycheckView(model) {
         <h2>${escapeHtml(allocation.payDate)} to ${escapeHtml(allocation.nextPayDate)}</h2>
         <strong>${centsToDollars(allocation.amountCents)}</strong>
         <p>${allocation.isShortCents
-          ? `This paycheck is short by ${centsToDollars(allocation.isShortCents)} before discretionary buffer.`
+          ? `${centsToDollars(allocation.isShortCents)} of the ideal plan needs to move, shrink, or wait for another paycheck.`
           : `${centsToDollars(Math.max(0, allocation.amountCents - totalAllocated))} remains unassigned after recommended buckets.`}</p>
         <div class="action-row">
           <a class="button-link" href="#modal-save-paycheck">Save this plan</a>
@@ -75,7 +75,7 @@ export function renderPaycheckView(model) {
           ${ledgerRow('Extra card payoff', allocation.extraCardPaymentCents)}
           ${ledgerRow('Safe spending buffer', allocation.safeSpendingBufferCents)}
           ${ledgerRow('Still unassigned', Math.max(0, allocation.remainingCents), 'muted')}
-          ${ledgerRow('Shortfall', allocation.isShortCents, allocation.isShortCents ? 'danger' : 'muted')}
+          ${ledgerRow('Unfunded ideal plan', allocation.unfundedPlanCents, allocation.unfundedPlanCents ? 'danger' : 'muted')}
         </div>
       `)}
       ${section('Planning Inputs', allocationCalculatorForm(allocation))}
@@ -90,9 +90,9 @@ export function renderPaycheckView(model) {
           <article><span>Down payment</span><strong>${centsToDollars(allocation.downPaymentSavingsCents)}</strong></article>
           <article><span>Emergency fund</span><strong>${centsToDollars(allocation.emergencySavingsCents)}</strong></article>
           <article><span>Safe spending buffer</span><strong>${centsToDollars(allocation.safeSpendingBufferCents)}</strong></article>
-          <article><span>Shortfall</span><strong>${centsToDollars(allocation.isShortCents)}</strong></article>
+          <article><span>Unfunded ideal plan</span><strong>${centsToDollars(allocation.unfundedPlanCents)}</strong></article>
         </div>
-        <p>Card payment includes ${centsToDollars(allocation.cardMinimumsDueCents)} in card minimums due before the next paycheck plus ${centsToDollars(allocation.extraCardPaymentCents)} in extra payoff. ${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
+        <p>This plan allocates exactly ${centsToDollars(allocation.totalAllocatedCents)} of this paycheck. Card payment includes ${centsToDollars(allocation.cardMinimumsDueCents)} toward card minimums due before the next paycheck plus ${centsToDollars(allocation.extraCardPaymentCents)} in extra payoff. ${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
       `)}
       ${section('Known Spending Before Next Paycheck', table(['Envelope', 'Monthly Plan', 'This Paycheck', 'Monthly Remaining'], spendingRows, 'No variable spending envelopes found.'), 'flush')}
     </div>

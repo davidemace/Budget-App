@@ -145,3 +145,32 @@ test('reserves known variable spending envelopes from each paycheck', () => {
   assert.equal(allocation.spendingEnvelopes[0].amount_cents, 36000);
   assert.equal(allocation.spendingEnvelopes[0].monthly_budget_cents - allocation.spendingEnvelopes[0].actual_spending_cents, 47000);
 });
+
+test('never recommends more allocation than the paycheck amount', () => {
+  const allocation = allocatePaycheck({
+    amountCents: 100000,
+    payDate: '2026-07-01',
+    nextPayDate: '2026-07-15',
+    bills: [
+      { name: 'Rent', due_day: 1, amount_cents: 90000 },
+      { name: 'Card minimum', due_day: 5, amount_cents: 25000 }
+    ],
+    cards: [{ name: 'Card', balance_cents: 50000, credit_limit_cents: 100000, minimum_payment_cents: 25000, apr: 20 }],
+    goals: [{ goal_type: 'emergency_fund', monthly_contribution_cents: 20000 }],
+    categories: [{ name: 'Groceries', category_type: 'variable', monthly_budget_cents: 60000, actual_spending_cents: 0 }],
+    paychecks: [
+      { pay_date: '2026-07-01' },
+      { pay_date: '2026-07-15' }
+    ]
+  });
+
+  assert.equal(allocation.totalAllocatedCents, 100000);
+  assert.equal(allocation.remainingCents, 0);
+  assert.equal(allocation.requiredBillsCents, 90000);
+  assert.equal(allocation.cardMinimumsDueCents, 10000);
+  assert.equal(allocation.spendingEnvelopesCents, 0);
+  assert.equal(allocation.emergencySavingsCents, 0);
+  assert.equal(allocation.extraCardPaymentCents, 0);
+  assert.equal(allocation.safeSpendingBufferCents, 0);
+  assert.equal(allocation.unfundedPlanCents, 55000);
+});

@@ -35,27 +35,49 @@ export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = []
   const allDueBills = billsDueBetween(bills, payDate, resolvedNextPayDate);
   const cardMinimumBillsDue = allDueBills.filter((bill) => isCreditCardMinimumBill(bill, cards));
   const dueBills = allDueBills.filter((bill) => !isCreditCardMinimumBill(bill, cards));
-  const spendingEnvelopes = variableSpendingEnvelopes(categories, payDate, paychecks);
-  const requiredBillsCents = sumBy(dueBills, 'amount_cents');
-  const cardMinimumsDueCents = sumBy(cardMinimumBillsDue, 'amount_cents');
-  const spendingEnvelopesCents = sumBy(spendingEnvelopes, 'amount_cents');
+  const spendingEnvelopeTargets = variableSpendingEnvelopes(categories, payDate, paychecks);
+  const requiredBillsTargetCents = sumBy(dueBills, 'amount_cents');
+  const cardMinimumsTargetCents = sumBy(cardMinimumBillsDue, 'amount_cents');
+  const spendingEnvelopesTargetCents = sumBy(spendingEnvelopeTargets, 'target_cents');
   const downPaymentGoal = goals.find((goal) => goal.goal_type === 'down_payment');
   const emergencyGoal = goals.find((goal) => goal.goal_type === 'emergency_fund');
   const paycheckCount = paychecksInMonth(payDate, paychecks);
   const downPaymentTargetCents = Math.round((downPaymentGoal?.monthly_contribution_cents || 0) / paycheckCount);
   const emergencyTargetCents = Math.round((emergencyGoal?.monthly_contribution_cents || 0) / paycheckCount);
-  const requiredBaseCents = requiredBillsCents + cardMinimumsDueCents + spendingEnvelopesCents + downPaymentTargetCents + emergencyTargetCents;
-  const availableAfterRequiredCents = amountCents - requiredBaseCents;
-  const bufferCents = Math.max(0, Math.round(Math.max(0, availableAfterRequiredCents) * 0.45));
-  const extraCardPaymentCents = Math.max(0, availableAfterRequiredCents - bufferCents);
+  const targetBaseCents = requiredBillsTargetCents
+    + cardMinimumsTargetCents
+    + spendingEnvelopesTargetCents
+    + emergencyTargetCents
+    + downPaymentTargetCents;
+
+  let remainingToAllocateCents = amountCents;
+  const take = (targetCents) => {
+    const allocatedCents = Math.min(Math.max(0, targetCents), Math.max(0, remainingToAllocateCents));
+    remainingToAllocateCents -= allocatedCents;
+    return allocatedCents;
+  };
+
+  const requiredBillsCents = take(requiredBillsTargetCents);
+  const cardMinimumsDueCents = take(cardMinimumsTargetCents);
+  const spendingEnvelopes = spendingEnvelopeTargets.map((envelope) => ({
+    ...envelope,
+    amount_cents: take(envelope.target_cents)
+  }));
+  const spendingEnvelopesCents = sumBy(spendingEnvelopes, 'amount_cents');
+  const emergencySavingsCents = take(emergencyTargetCents);
+  const downPaymentSavingsCents = take(downPaymentTargetCents);
+  const availableAfterCorePlanCents = Math.max(0, remainingToAllocateCents);
+  const bufferCents = Math.round(availableAfterCorePlanCents * 0.45);
+  const extraCardPaymentCents = availableAfterCorePlanCents - bufferCents;
   const priorityCard = scoreFocusedRecommendation(cards);
   const totalAllocatedCents = requiredBillsCents
     + cardMinimumsDueCents
     + spendingEnvelopesCents
-    + downPaymentTargetCents
-    + emergencyTargetCents
+    + emergencySavingsCents
+    + downPaymentSavingsCents
     + extraCardPaymentCents
     + bufferCents;
+  const unfundedPlanCents = Math.max(0, targetBaseCents - amountCents);
 
   return {
     payDate,
@@ -65,18 +87,24 @@ export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = []
     cardMinimumBillsDue,
     spendingEnvelopes,
     requiredBillsCents,
+    requiredBillsTargetCents,
     cardMinimumsDueCents,
+    cardMinimumsTargetCents,
     spendingEnvelopesCents,
+    spendingEnvelopesTargetCents,
     debtMinimumsCents: cardMinimumsDueCents,
-    downPaymentSavingsCents: downPaymentTargetCents,
-    emergencySavingsCents: emergencyTargetCents,
+    downPaymentSavingsCents,
+    downPaymentTargetCents,
+    emergencySavingsCents,
+    emergencyTargetCents,
     creditCardPaymentCents: cardMinimumsDueCents + extraCardPaymentCents,
     extraCardPaymentCents,
     safeSpendingBufferCents: bufferCents,
     totalAllocatedCents,
     remainingCents: amountCents - totalAllocatedCents,
+    unfundedPlanCents,
     priorityCard,
-    isShortCents: Math.max(0, requiredBaseCents - amountCents)
+    isShortCents: unfundedPlanCents
   };
 }
 
@@ -89,6 +117,7 @@ function variableSpendingEnvelopes(categories = [], payDate, paychecks = []) {
       name: category.name,
       monthly_budget_cents: category.monthly_budget_cents,
       actual_spending_cents: category.actual_spending_cents || 0,
+      target_cents: Math.round(category.monthly_budget_cents / paycheckCount),
       amount_cents: Math.round(category.monthly_budget_cents / paycheckCount)
     }));
 }
