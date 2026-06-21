@@ -1,51 +1,115 @@
-import { centsToDollars, inputDollars, sumBy } from '../services/money.js';
-import { pageHeader, statCard, moneyCell } from './components.js';
-import { escapeHtml } from './layout.js';
+import { centsToDollars } from '../services/money.js';
+import { escapeHtml, pageHeader, metricCard, section, table } from './components.js';
 
-export function buildBudgetModel({ categories, bills, cards, goals }) {
-  const income = sumBy(categories.filter((row) => row.kind === 'income'), 'monthly_amount_cents');
-  const fixedBills = sumBy(bills, 'amount_cents');
-  const variable = sumBy(categories.filter((row) => row.kind === 'variable'), 'monthly_amount_cents');
-  const safeSpending = sumBy(categories.filter((row) => row.kind === 'variable'), 'safe_spending_cents');
-  const debtMinimums = sumBy(cards, 'minimum_payment_cents');
-  const savingsGoals = sumBy(goals, 'monthly_target_cents');
-  const remaining = income - fixedBills - variable - debtMinimums - savingsGoals;
-  return { categories, bills, cards, goals, income, fixedBills, variable, safeSpending, debtMinimums, savingsGoals, remaining };
+export function renderBudgetView(model) {
+  const categoryRows = model.categories.map((cat) => `<tr>
+    <td>${escapeHtml(cat.category_type)}</td>
+    <td>${escapeHtml(cat.name)}</td>
+    <td>${centsToDollars(cat.monthly_budget_cents)}</td>
+    <td>${centsToDollars(cat.actual_spending_cents)}</td>
+    <td>${centsToDollars(cat.monthly_budget_cents - cat.actual_spending_cents)}</td>
+  </tr>`);
+
+  const billRows = model.bills.map((bill) => `<tr>
+    <td>${escapeHtml(bill.name)}</td>
+    <td>${bill.due_day}</td>
+    <td>${centsToDollars(bill.amount_cents)}</td>
+    <td>${escapeHtml(bill.category_name || 'Unassigned')}</td>
+  </tr>`);
+
+  const spendingRows = model.spendingEntries.map((entry) => `<tr>
+    <td>${escapeHtml(entry.spent_date)}</td>
+    <td>${escapeHtml(entry.merchant)}</td>
+    <td>${escapeHtml(entry.category_name || 'Unassigned')}</td>
+    <td>${centsToDollars(entry.amount_cents)}</td>
+    <td>
+      <form method="post" class="inline-form">
+        <input type="hidden" name="_action" value="delete_spending">
+        <input type="hidden" name="id" value="${entry.id}">
+        <button class="link-button" type="submit">Delete</button>
+      </form>
+    </td>
+  </tr>`);
+
+  const categoryOptions = model.categories.map((cat) => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
+  const categoryEditors = model.categories.map((cat) => categoryForm(cat)).join('');
+  const billEditors = model.bills.map((bill) => billForm(bill, categoryOptions)).join('');
+
+  return `${pageHeader('Monthly Budget', 'See income, fixed bills, variable categories, debt minimums, savings goals, remaining cash flow, and safe spending.')}
+    <div class="grid metrics">
+      ${metricCard('Income', centsToDollars(model.summary.monthlyIncomeCents), 'Monthly net paychecks')}
+      ${metricCard('Fixed Bills', centsToDollars(model.summary.fixedBillsCents), 'Recurring obligations')}
+      ${metricCard('Debt Minimums', centsToDollars(model.summary.debtMinimumsCents), 'Credit card minimums')}
+      ${metricCard('Safe Spending', centsToDollars(model.summary.safeSpendingCents), 'Variable categories plus remaining cash')}
+    </div>
+    <div class="grid two">
+      ${section('Planned vs Actual', table(['Type', 'Category', 'Planned', 'Actual', 'Remaining'], categoryRows, 'No budget categories found.'), 'flush')}
+      ${section('Fixed Bills', table(['Bill', 'Due', 'Amount', 'Category'], billRows, 'No bills found.'), 'flush')}
+    </div>
+    <div class="grid two">
+      ${section('Add Spending', spendingForm(categoryOptions))}
+      ${section('Recent Spending', table(['Date', 'Merchant', 'Category', 'Amount', ''], spendingRows, 'No spending entries yet.'), 'flush')}
+    </div>
+    <div class="grid two">
+      ${section('Budget Category Editor', `${categoryForm()}${categoryEditors}`, 'editor-card')}
+      ${section('Bill Editor', `${billForm(null, categoryOptions)}${billEditors}`, 'editor-card')}
+    </div>`;
 }
 
-export function renderBudget(model) {
-  return `${pageHeader('Monthly budget', 'Cash flow that supports home buying', 'Separate fixed bills, variable spending, debt minimums, and savings targets so the leftover number is real.')}
-    <section class="stats-grid">
-      ${statCard('Income', centsToDollars(model.income))}
-      ${statCard('Fixed bills', centsToDollars(model.fixedBills))}
-      ${statCard('Debt minimums', centsToDollars(model.debtMinimums))}
-      ${statCard('Remaining', centsToDollars(model.remaining))}
-    </section>
-    <section class="two-column">
-      <article class="panel"><h2>Budget categories</h2><div class="edit-list">${model.categories.map(categoryForm).join('')}</div>${categoryForm({ id: '', name: '', kind: 'variable', monthly_amount_cents: 0, safe_spending_cents: 0, sort_order: 100 }, true)}</article>
-      <article class="panel"><h2>Bills</h2><div class="edit-list">${model.bills.map(billForm).join('')}</div>${billForm({ id: '', name: '', due_day: 1, amount_cents: 0, category: 'fixed', is_active: 1 }, true)}</article>
-    </section>
-    <section class="panel"><h2>Savings goals in the budget</h2><div class="mini-list">${model.goals.map((goal) => `<div><span>${escapeHtml(goal.name)}</span><strong>${moneyCell(goal.monthly_target_cents)} / mo</strong></div>`).join('')}</div></section>`;
-}
-
-function categoryForm(row, isNew = false) {
-  return `<form class="edit-row budget-row" method="post" action="${isNew ? '/budget/categories' : `/budget/categories/${row.id}`}">
-    <div class="field wide"><label>Name</label><input name="name" value="${escapeHtml(row.name)}" required></div>
-    <div class="field"><label>Type</label><select name="kind">${['income', 'fixed', 'variable', 'debt', 'savings'].map((kind) => `<option value="${kind}" ${kind === row.kind ? 'selected' : ''}>${kind}</option>`).join('')}</select></div>
-    <div class="field"><label>Monthly</label><input name="monthly_amount" inputmode="decimal" value="${inputDollars(row.monthly_amount_cents)}"></div>
-    <div class="field"><label>Safe spend</label><input name="safe_spending" inputmode="decimal" value="${inputDollars(row.safe_spending_cents)}"></div>
-    <div class="field compact"><label>Order</label><input name="sort_order" type="number" value="${Number(row.sort_order || 0)}"></div>
-    <button type="submit">${isNew ? 'Add category' : 'Save'}</button>
+function spendingForm(categoryOptions) {
+  return `<form method="post" class="form-grid">
+    <input type="hidden" name="_action" value="save_spending">
+    <label>Category<select name="category_id" required>${categoryOptions}</select></label>
+    <label>Amount<input name="amount" inputmode="decimal" placeholder="125.00" required></label>
+    <label>Date<input name="spent_date" type="date" required></label>
+    <label>Merchant<input name="merchant" placeholder="Grocery store"></label>
+    <label class="full">Note<input name="note" placeholder="Optional note"></label>
+    <button type="submit">Add spending</button>
   </form>`;
 }
 
-function billForm(bill, isNew = false) {
-  return `<form class="edit-row bill-row" method="post" action="${isNew ? '/budget/bills' : `/budget/bills/${bill.id}`}">
-    <div class="field wide"><label>Bill</label><input name="name" value="${escapeHtml(bill.name)}" required></div>
-    <div class="field compact"><label>Due</label><input name="due_day" type="number" min="1" max="31" value="${Number(bill.due_day || 1)}"></div>
-    <div class="field"><label>Amount</label><input name="amount" inputmode="decimal" value="${inputDollars(bill.amount_cents)}"></div>
-    <div class="field"><label>Category</label><select name="category">${['fixed', 'variable', 'debt', 'savings'].map((kind) => `<option value="${kind}" ${kind === bill.category ? 'selected' : ''}>${kind}</option>`).join('')}</select></div>
-    ${isNew ? '' : `<label class="check-field"><input type="checkbox" name="is_active" ${bill.is_active ? 'checked' : ''}> Active</label>`}
-    <button type="submit">${isNew ? 'Add bill' : 'Save'}</button>
-  </form>`;
+function categoryForm(category = {}) {
+  const id = category.id || '';
+  const deleteButton = id ? `<button class="danger" type="submit" form="delete-category-${id}">Delete</button>` : '';
+  return `<form method="post" class="form-grid compact">
+    <input type="hidden" name="_action" value="save_category">
+    <input type="hidden" name="id" value="${id}">
+    <label>Name<input name="name" value="${escapeHtml(category.name || '')}" required></label>
+    <label>Type<select name="category_type">
+      ${option('fixed', category.category_type)}
+      ${option('variable', category.category_type)}
+      ${option('debt', category.category_type)}
+      ${option('savings', category.category_type)}
+    </select></label>
+    <label>Planned<input name="monthly_budget" inputmode="decimal" value="${moneyInput(category.monthly_budget_cents)}"></label>
+    <label>Manual actual<input name="monthly_actual" inputmode="decimal" value="${moneyInput(category.monthly_actual_cents)}"></label>
+    <label>Sort<input name="sort_order" inputmode="numeric" value="${category.sort_order || 0}"></label>
+    <button type="submit">${id ? 'Save category' : 'Add category'}</button>
+    ${deleteButton}
+  </form>${id ? `<form id="delete-category-${id}" method="post"><input type="hidden" name="_action" value="delete_category"><input type="hidden" name="id" value="${id}"></form>` : ''}`;
+}
+
+function billForm(bill = {}, categoryOptions = '') {
+  const id = bill?.id || '';
+  const selectedOptions = categoryOptions.replace(`value="${bill?.category_id}"`, `value="${bill?.category_id}" selected`);
+  const deleteButton = id ? `<button class="danger" type="submit" form="delete-bill-${id}">Delete</button>` : '';
+  return `<form method="post" class="form-grid compact">
+    <input type="hidden" name="_action" value="save_bill">
+    <input type="hidden" name="id" value="${id}">
+    <label>Name<input name="name" value="${escapeHtml(bill?.name || '')}" required></label>
+    <label>Due day<input name="due_day" inputmode="numeric" value="${bill?.due_day || 1}" required></label>
+    <label>Amount<input name="amount" inputmode="decimal" value="${moneyInput(bill?.amount_cents)}"></label>
+    <label>Category<select name="category_id"><option value="">Unassigned</option>${selectedOptions}</select></label>
+    <label class="check"><input name="is_fixed" type="checkbox" ${bill?.is_fixed !== 0 ? 'checked' : ''}> Fixed</label>
+    <button type="submit">${id ? 'Save bill' : 'Add bill'}</button>
+    ${deleteButton}
+  </form>${id ? `<form id="delete-bill-${id}" method="post"><input type="hidden" name="_action" value="delete_bill"><input type="hidden" name="id" value="${id}"></form>` : ''}`;
+}
+
+function option(value, current) {
+  return `<option value="${value}" ${value === current ? 'selected' : ''}>${value}</option>`;
+}
+
+function moneyInput(cents = 0) {
+  return cents ? (Number(cents) / 100).toFixed(2) : '';
 }

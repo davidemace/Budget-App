@@ -1,52 +1,71 @@
-import { all, run } from '../db.js';
-import { centsFromDollars } from '../services/money.js';
-import { renderPaycheck } from '../views/paycheckView.js';
-import { redirectResponse } from '../views/layout.js';
+import { getBills, getCreditCards, getPaychecks, getSavingsGoals, run } from '../db.js';
+import { formCents, formString } from '../services/forms.js';
+import { sumBy } from '../services/money.js';
+import { allocatePaycheck } from '../services/paycheckAllocation.js';
+import { renderPaycheckView } from '../views/paycheckView.js';
 
-export async function paycheckApi({ env }) {
-  return loadPaycheckData(env);
-}
+export async function paycheck({ request, env, api }) {
+  if (request.method === 'POST') {
+    await handlePaycheckPost(request, env);
+    return { redirect: '/paycheck' };
+  }
 
-export async function getPaycheck({ env }) {
+  const url = new URL(request.url);
+  const [paychecks, bills, cards, goals] = await Promise.all([
+    getPaychecks(env),
+    getBills(env),
+    getCreditCards(env),
+    getSavingsGoals(env)
+  ]);
+  const amountCents = url.searchParams.has('amount') ? formLikeCents(url.searchParams.get('amount')) : paychecks[0]?.net_amount_cents || 0;
+  const payDate = url.searchParams.get('pay_date') || paychecks[0]?.pay_date || new Date().toISOString().slice(0, 10);
+  const nextPayDate = url.searchParams.get('next_pay_date') || '';
+  const allocation = allocatePaycheck({
+    amountCents,
+    payDate,
+    nextPayDate,
+    bills,
+    cards,
+    goals,
+    paychecks
+  });
+
+  const model = {
+    paychecks,
+    bills,
+    allocation,
+    monthlyIncomeCents: sumBy(paychecks, 'net_amount_cents'),
+    plannedBillsCents: sumBy(paychecks, 'planned_bills_cents'),
+    plannedDebtCents: sumBy(paychecks, 'planned_debt_cents'),
+    plannedSavingsCents: sumBy(paychecks, 'planned_savings_cents')
+  };
+
+  if (api) return { data: model };
   return {
     title: 'Paycheck Planner',
-    active: 'paycheck',
-    body: renderPaycheck(await loadPaycheckData(env))
+    body: renderPaycheckView(model)
   };
 }
 
-export async function createPaycheck({ request, env }) {
+async function handlePaycheckPost(request, env) {
   const form = await request.formData();
-  await run(env, `INSERT INTO paychecks
-    (label, pay_date, net_amount_cents, planned_bills_cents, planned_debt_cents, planned_savings_cents, notes, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, paycheckBindings(form));
-  return redirectResponse('/paycheck');
+  const action = formString(form, '_action');
+
+  if (action === 'save_paycheck') {
+    await run(env, `INSERT INTO paychecks
+      (name, pay_date, net_amount_cents, planned_bills_cents, planned_debt_cents, planned_savings_cents, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+      formString(form, 'name', 'Paycheck'),
+      formString(form, 'pay_date'),
+      formCents(form, 'net_amount'),
+      formCents(form, 'planned_bills'),
+      formCents(form, 'planned_debt'),
+      formCents(form, 'planned_savings'),
+      formString(form, 'notes')
+    ]);
+  }
 }
 
-export async function updatePaycheck({ request, env, params }) {
-  const form = await request.formData();
-  await run(env, `UPDATE paychecks
-    SET label = ?, pay_date = ?, net_amount_cents = ?, planned_bills_cents = ?, planned_debt_cents = ?, planned_savings_cents = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?`, [...paycheckBindings(form), params.id]);
-  return redirectResponse('/paycheck');
-}
-
-async function loadPaycheckData(env) {
-  const [paychecks, bills] = await Promise.all([
-    all(env, 'SELECT * FROM paychecks ORDER BY pay_date DESC'),
-    all(env, 'SELECT * FROM bills WHERE is_active = 1 ORDER BY due_day, name')
-  ]);
-  return { paychecks, bills };
-}
-
-function paycheckBindings(form) {
-  return [
-    String(form.get('label') || '').trim(),
-    String(form.get('pay_date') || ''),
-    centsFromDollars(form.get('net_amount')),
-    centsFromDollars(form.get('planned_bills')),
-    centsFromDollars(form.get('planned_debt')),
-    centsFromDollars(form.get('planned_savings')),
-    String(form.get('notes') || '').trim()
-  ];
+function formLikeCents(value) {
+  return Math.round((Number(String(value ?? '').replace(/[$,\s]/g, '')) || 0) * 100);
 }

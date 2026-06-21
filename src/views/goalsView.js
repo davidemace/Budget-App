@@ -1,28 +1,53 @@
-import { pageHeader, progressBar, moneyCell } from './components.js';
-import { inputDollars } from '../services/money.js';
-import { escapeHtml } from './layout.js';
+import { centsToDollars, pct } from '../services/money.js';
+import { escapeHtml, pageHeader, progressBar, section, table } from './components.js';
 
-export function renderGoals(goals) {
-  return `${pageHeader('Savings goals', 'Fund the home-buying runway', 'Track down payment, emergency fund, closing costs, and other cash targets.')}
-    <section class="goal-grid">${goals.map((goal) => `<article class="panel">
-      <p class="eyebrow">${escapeHtml(goal.goal_type.replaceAll('_', ' '))}</p>
-      <h2>${escapeHtml(goal.name)}</h2>
-      <p>${moneyCell(goal.current_cents)} saved of ${moneyCell(goal.target_cents)}</p>
-      ${progressBar(goal.current_cents, goal.target_cents)}
-      <div class="mini-list single"><div><span>Monthly target</span><strong>${moneyCell(goal.monthly_target_cents)}</strong></div><div><span>Target date</span><strong>${escapeHtml(goal.target_date || 'Not set')}</strong></div></div>
-      ${goalForm(goal)}
-    </article>`).join('')}</section>
-    <section class="panel"><h2>Add goal</h2>${goalForm({ id: '', name: '', goal_type: 'other', target_cents: 0, current_cents: 0, monthly_target_cents: 0, target_date: '' }, true)}</section>`;
+export function renderGoalsView(model) {
+  const rows = model.goals.map((goal) => `<tr>
+    <td>${escapeHtml(goal.name)}</td>
+    <td>${escapeHtml(goal.goal_type)}</td>
+    <td>${centsToDollars(goal.current_cents)}</td>
+    <td>${centsToDollars(goal.target_cents)}</td>
+    <td>${pct(goal.progress)} ${progressBar(goal.progress)}</td>
+    <td>${centsToDollars(goal.monthly_contribution_cents)}</td>
+    <td>${escapeHtml(goal.target_date || '')}</td>
+  </tr>`);
+  const editors = model.goals.map((goal) => goalForm(goal)).join('');
+
+  return `${pageHeader('Savings Goals', 'Track down payment, emergency fund, closing costs, and other home-buying milestones.')}
+    <div class="grid two">
+      ${section('Add Goal', goalForm())}
+      ${section('Goal Editor', editors || '<p>No goals yet.</p>', 'editor-card')}
+    </div>
+    ${table(['Goal', 'Type', 'Current', 'Target', 'Progress', 'Monthly', 'Target Date'], rows, 'No savings goals found.')}`;
 }
 
-function goalForm(goal, isNew = false) {
-  return `<form class="edit-row goal-row" method="post" action="${isNew ? '/goals' : `/goals/${goal.id}`}">
-    <div class="field wide"><label>Name</label><input name="name" value="${escapeHtml(goal.name)}" required></div>
-    <div class="field"><label>Type</label><select name="goal_type">${['down_payment', 'emergency_fund', 'closing_costs', 'other'].map((type) => `<option value="${type}" ${type === goal.goal_type ? 'selected' : ''}>${type.replaceAll('_', ' ')}</option>`).join('')}</select></div>
-    <div class="field"><label>Target</label><input name="target" inputmode="decimal" value="${inputDollars(goal.target_cents)}"></div>
-    <div class="field"><label>Current</label><input name="current" inputmode="decimal" value="${inputDollars(goal.current_cents)}"></div>
-    <div class="field"><label>Monthly</label><input name="monthly_target" inputmode="decimal" value="${inputDollars(goal.monthly_target_cents)}"></div>
-    <div class="field"><label>Date</label><input name="target_date" type="date" value="${escapeHtml(goal.target_date || '')}"></div>
-    <button type="submit">${isNew ? 'Add goal' : 'Save'}</button>
-  </form>`;
+function goalForm(goal = {}) {
+  const id = goal.id || '';
+  const deleteButton = id ? `<button class="danger" type="submit" form="delete-goal-${id}">Delete</button>` : '';
+  return `<form method="post" class="form-grid compact">
+    <input type="hidden" name="_action" value="save_goal">
+    <input type="hidden" name="id" value="${id}">
+    <label>Name<input name="name" value="${escapeHtml(goal.name || '')}" required></label>
+    <label>Type<select name="goal_type">
+      ${option('down_payment', goal.goal_type)}
+      ${option('emergency_fund', goal.goal_type)}
+      ${option('closing_costs', goal.goal_type)}
+      ${option('other', goal.goal_type)}
+    </select></label>
+    <label>Current<input name="current" inputmode="decimal" value="${moneyInput(goal.current_cents)}"></label>
+    <label>Target<input name="target" inputmode="decimal" value="${moneyInput(goal.target_cents)}"></label>
+    <label>Monthly<input name="monthly_contribution" inputmode="decimal" value="${moneyInput(goal.monthly_contribution_cents)}"></label>
+    <label>Target date<input name="target_date" type="date" value="${escapeHtml(goal.target_date || '')}"></label>
+    <label>Priority<input name="priority" inputmode="numeric" value="${goal.priority || 0}"></label>
+    <button type="submit">${id ? 'Save goal' : 'Add goal'}</button>
+    ${deleteButton}
+  </form>${id ? `<form id="delete-goal-${id}" method="post"><input type="hidden" name="_action" value="delete_goal"><input type="hidden" name="id" value="${id}"></form>` : ''}`;
+}
+
+function option(value, current) {
+  return `<option value="${value}" ${value === current ? 'selected' : ''}>${value}</option>`;
+}
+
+function moneyInput(cents = 0) {
+  return cents ? (Number(cents) / 100).toFixed(2) : '';
 }
