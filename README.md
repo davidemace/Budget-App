@@ -11,7 +11,7 @@ A single-user Cloudflare Worker + D1 dashboard for monthly budgeting, credit-car
 
 2. Create the D1 database:
    ```sh
-   npx wrangler d1 create mace-budget-db
+   npx wrangler d1 create budget_db
    ```
 
 3. Copy the returned database id into `wrangler.toml` under `database_id`.

@@ -7,8 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "node --test",
-    "db:migrate:local": "wrangler d1 migrations apply mace-budget-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply mace-budget-db --remote"
+    "db:migrate:local": "wrangler d1 migrations apply budget_db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply budget_db --remote"
   },
   "devDependencies": {
     "wrangler": "^4.20.5"
