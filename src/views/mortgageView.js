@@ -29,10 +29,13 @@ export function renderMortgageView(model) {
         </div>
       `)}
     </div>
-    <div class="grid two">
-      ${section('Add Scenario', scenarioForm())}
-      ${section('Scenario Editor', editors, 'editor-card')}
-    </div>`;
+    <details class="manage-panel">
+      <summary>Manage mortgage scenarios</summary>
+      <div class="grid two">
+        ${section('Add Scenario', scenarioForm())}
+        ${section('Scenario Editor', editors, 'editor-card')}
+      </div>
+    </details>`;
 }
 
 function scenarioForm(scenario = {}) {

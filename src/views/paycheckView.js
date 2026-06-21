@@ -12,13 +12,39 @@ export function renderPaycheckView(model) {
   </tr>`);
 
   const allocation = model.allocation;
+  const totalAllocated = allocation.requiredBillsCents
+    + allocation.creditCardPaymentCents
+    + allocation.downPaymentSavingsCents
+    + allocation.emergencySavingsCents
+    + allocation.safeSpendingBufferCents;
   const dueBillRows = allocation.dueBills.map((bill) => `<tr>
     <td>${escapeHtml(bill.name)}</td>
     <td>${escapeHtml(bill.due_date)}</td>
     <td>${centsToDollars(bill.amount_cents)}</td>
   </tr>`);
 
-  return `${pageHeader('Paycheck Planner', 'Map each paycheck to bills, card payoff, home savings, and cash buffer.')}
+  return `${pageHeader('Paycheck Allocation Console', 'Turn the next paycheck into a clear plan before the money lands.', 'Paycheck planner')}
+    <section class="command-hero paycheck-command">
+      <div>
+        <span class="eyebrow">Paycheck window</span>
+        <h2>${escapeHtml(allocation.payDate)} to ${escapeHtml(allocation.nextPayDate)}</h2>
+        <strong>${centsToDollars(allocation.amountCents)}</strong>
+        <p>${allocation.isShortCents
+          ? `This paycheck is short by ${centsToDollars(allocation.isShortCents)} before discretionary buffer.`
+          : `${centsToDollars(Math.max(0, allocation.amountCents - totalAllocated))} remains unassigned after recommended buckets.`}</p>
+      </div>
+      <div class="allocation-summary">
+        <span>Recommended split</span>
+        <div class="allocation-bar">
+          ${barSegment('Bills', allocation.requiredBillsCents, allocation.amountCents)}
+          ${barSegment('Cards', allocation.creditCardPaymentCents, allocation.amountCents)}
+          ${barSegment('Savings', allocation.downPaymentSavingsCents + allocation.emergencySavingsCents, allocation.amountCents)}
+          ${barSegment('Buffer', allocation.safeSpendingBufferCents, allocation.amountCents)}
+        </div>
+        <small>${allocation.priorityCard ? `Extra debt dollars target ${escapeHtml(allocation.priorityCard.name)}.` : 'Add cards to generate a payoff target.'}</small>
+      </div>
+    </section>
+
     <div class="grid metrics">
       ${metricCard('Monthly Paychecks', centsToDollars(model.monthlyIncomeCents), 'Planned net income')}
       ${metricCard('Bills Allocation', centsToDollars(model.plannedBillsCents), 'From paycheck plans')}
@@ -28,7 +54,7 @@ export function renderPaycheckView(model) {
     <div class="grid two">
       ${section('Allocation Engine', allocationForm(allocation))}
       ${section('Recommended Allocation', `
-        <div class="allocation-grid">
+        <div class="allocation-grid featured">
           <article><span>Bills due</span><strong>${centsToDollars(allocation.requiredBillsCents)}</strong></article>
           <article><span>Credit card payment</span><strong>${centsToDollars(allocation.creditCardPaymentCents)}</strong></article>
           <article><span>Down payment</span><strong>${centsToDollars(allocation.downPaymentSavingsCents)}</strong></article>
@@ -40,7 +66,10 @@ export function renderPaycheckView(model) {
       `)}
     </div>
     ${section('Bills Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No bills due in this paycheck window.'), 'flush')}
-    ${section('Paycheck Plan', table(['Name', 'Date', 'Net', 'Bills', 'Debt', 'Savings'], rows, 'No paychecks found.'), 'flush')}`;
+    <details class="manage-panel">
+      <summary>Saved paycheck plans</summary>
+      ${section('Paycheck Plan', table(['Name', 'Date', 'Net', 'Bills', 'Debt', 'Savings'], rows, 'No paychecks found.'), 'flush')}
+    </details>`;
 }
 
 function allocationForm(allocation) {
@@ -61,6 +90,11 @@ function allocationForm(allocation) {
     <label class="full">Notes<input name="notes" value="Generated from allocation engine"></label>
     <button type="submit">Save Paycheck Plan</button>
   </form>`;
+}
+
+function barSegment(label, amountCents, totalCents) {
+  const percent = totalCents > 0 ? Math.max(3, (amountCents / totalCents) * 100) : 0;
+  return amountCents > 0 ? `<span style="width:${percent.toFixed(1)}%" title="${label}"></span>` : '';
 }
 
 function moneyInput(cents = 0) {

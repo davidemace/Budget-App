@@ -14,11 +14,14 @@ export function renderGoalsView(model) {
   const editors = model.goals.map((goal) => goalForm(goal)).join('');
 
   return `${pageHeader('Savings Goals', 'Track down payment, emergency fund, closing costs, and other home-buying milestones.')}
-    <div class="grid two">
-      ${section('Add Goal', goalForm())}
-      ${section('Goal Editor', editors || '<p>No goals yet.</p>', 'editor-card')}
-    </div>
-    ${table(['Goal', 'Type', 'Current', 'Target', 'Progress', 'Monthly', 'Target Date'], rows, 'No savings goals found.')}`;
+    ${table(['Goal', 'Type', 'Current', 'Target', 'Progress', 'Monthly', 'Target Date'], rows, 'No savings goals found.')}
+    <details class="manage-panel">
+      <summary>Manage savings goals</summary>
+      <div class="grid two">
+        ${section('Add Goal', goalForm())}
+        ${section('Goal Editor', editors || '<p>No goals yet.</p>', 'editor-card')}
+      </div>
+    </details>`;
 }
 
 function goalForm(goal = {}) {

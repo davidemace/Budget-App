@@ -2,6 +2,10 @@ import { centsToDollars } from '../services/money.js';
 import { escapeHtml, pageHeader, metricCard, section, table } from './components.js';
 
 export function renderBudgetView(model) {
+  const variableCategories = model.categories.filter((cat) => cat.category_type === 'variable');
+  const spentCents = model.categories.reduce((total, cat) => total + Number(cat.actual_spending_cents || 0), 0);
+  const plannedCents = model.categories.reduce((total, cat) => total + Number(cat.monthly_budget_cents || 0), 0);
+  const budgetTiles = variableCategories.map((cat) => budgetTile(cat)).join('');
   const categoryRows = model.categories.map((cat) => `<tr>
     <td>${escapeHtml(cat.category_type)}</td>
     <td>${escapeHtml(cat.name)}</td>
@@ -35,25 +39,46 @@ export function renderBudgetView(model) {
   const categoryEditors = model.categories.map((cat) => categoryForm(cat)).join('');
   const billEditors = model.bills.map((bill) => billForm(bill, categoryOptions)).join('');
 
-  return `${pageHeader('Monthly Budget', 'See income, fixed bills, variable categories, debt minimums, savings goals, remaining cash flow, and safe spending.')}
+  return `${pageHeader('Budget Control Room', 'Track actual spending against the monthly plan and keep safe-spending decisions visible.', 'Monthly budget')}
+    <section class="command-hero budget-command">
+      <div>
+        <span class="eyebrow">Safe spending</span>
+        <h2>${centsToDollars(model.summary.safeSpendingCents)}</h2>
+        <p>${centsToDollars(model.summary.remainingCashFlowCents)} remains after fixed bills, debt minimums, and savings targets.</p>
+        <div class="action-row">
+          <a class="button-link" href="#add-spending">Log spending</a>
+          <a class="ghost-link" href="/paycheck">Plan next paycheck</a>
+        </div>
+      </div>
+      <div class="readiness-dial">
+        <span>Planned vs actual</span>
+        <strong>${centsToDollars(spentCents)}</strong>
+        <small>of ${centsToDollars(plannedCents)} planned categories</small>
+      </div>
+    </section>
+
     <div class="grid metrics">
       ${metricCard('Income', centsToDollars(model.summary.monthlyIncomeCents), 'Monthly net paychecks')}
       ${metricCard('Fixed Bills', centsToDollars(model.summary.fixedBillsCents), 'Recurring obligations')}
       ${metricCard('Debt Minimums', centsToDollars(model.summary.debtMinimumsCents), 'Credit card minimums')}
       ${metricCard('Safe Spending', centsToDollars(model.summary.safeSpendingCents), 'Variable categories plus remaining cash')}
     </div>
+
+    <div class="budget-tile-grid">${budgetTiles || '<p>No variable categories yet.</p>'}</div>
+
     <div class="grid two">
-      ${section('Planned vs Actual', table(['Type', 'Category', 'Planned', 'Actual', 'Remaining'], categoryRows, 'No budget categories found.'), 'flush')}
-      ${section('Fixed Bills', table(['Bill', 'Due', 'Amount', 'Category'], billRows, 'No bills found.'), 'flush')}
-    </div>
-    <div class="grid two">
-      ${section('Add Spending', spendingForm(categoryOptions))}
+      ${section('Add Spending', spendingForm(categoryOptions), 'anchor-card" id="add-spending')}
       ${section('Recent Spending', table(['Date', 'Merchant', 'Category', 'Amount', ''], spendingRows, 'No spending entries yet.'), 'flush')}
     </div>
-    <div class="grid two">
-      ${section('Budget Category Editor', `${categoryForm()}${categoryEditors}`, 'editor-card')}
-      ${section('Bill Editor', `${billForm(null, categoryOptions)}${billEditors}`, 'editor-card')}
-    </div>`;
+    ${section('Planned vs Actual Detail', table(['Type', 'Category', 'Planned', 'Actual', 'Remaining'], categoryRows, 'No budget categories found.'), 'flush')}
+    <details class="manage-panel">
+      <summary>Manage budget setup</summary>
+      <div class="grid two">
+        ${section('Fixed Bills', table(['Bill', 'Due', 'Amount', 'Category'], billRows, 'No bills found.'), 'flush')}
+        ${section('Budget Category Editor', `${categoryForm()}${categoryEditors}`, 'editor-card')}
+        ${section('Bill Editor', `${billForm(null, categoryOptions)}${billEditors}`, 'editor-card')}
+      </div>
+    </details>`;
 }
 
 function spendingForm(categoryOptions) {
@@ -104,6 +129,19 @@ function billForm(bill = {}, categoryOptions = '') {
     <button type="submit">${id ? 'Save bill' : 'Add bill'}</button>
     ${deleteButton}
   </form>${id ? `<form id="delete-bill-${id}" method="post"><input type="hidden" name="_action" value="delete_bill"><input type="hidden" name="id" value="${id}"></form>` : ''}`;
+}
+
+function budgetTile(cat) {
+  const planned = Number(cat.monthly_budget_cents || 0);
+  const actual = Number(cat.actual_spending_cents || 0);
+  const percent = planned > 0 ? Math.min(140, (actual / planned) * 100) : 0;
+  const remaining = planned - actual;
+  const tone = remaining < 0 ? 'danger' : percent > 80 ? 'warn' : 'good';
+  return `<article class="budget-tile ${tone}">
+    <div class="split"><strong>${escapeHtml(cat.name)}</strong><span>${centsToDollars(remaining)}</span></div>
+    <div class="mini-meter"><span style="width:${Math.min(100, percent).toFixed(1)}%"></span></div>
+    <p>${centsToDollars(actual)} spent of ${centsToDollars(planned)}</p>
+  </article>`;
 }
 
 function option(value, current) {
