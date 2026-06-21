@@ -1,9 +1,16 @@
 import { centsToDollars, pct } from '../services/money.js';
-import { escapeHtml, pageHeader, metricCard, progressBar, section, statusBadge } from './components.js';
+import { drawer, escapeHtml, modal, pageHeader, metricCard, progressBar, section, statusBadge } from './components.js';
 
 export function renderMortgageView(model) {
-  const editors = model.scenarios.map((scenario) => scenarioForm(scenario)).join('');
+  const editors = model.scenarios.map((scenario) => drawer(
+    `<span>${escapeHtml(scenario.name)}</span><small>${centsToDollars(scenario.estimated_monthly_cents)} estimated monthly</small>`,
+    scenarioForm(scenario)
+  )).join('');
   return `${pageHeader('Mortgage Readiness', 'Track down payment, emergency fund, credit utilization, estimated DTI, and $320k to $380k scenarios.')}
+    <div class="action-row toolbar-row">
+      <a class="button-link" href="#modal-add-scenario">Add scenario</a>
+      <a class="ghost-link" href="#manage-scenarios">Edit scenarios</a>
+    </div>
     <div class="grid metrics">
       ${metricCard('Readiness', model.readiness.status, 'Needs Work, Getting Close, or Ready', model.readiness.status === 'Ready' ? 'good' : 'warn')}
       ${metricCard('Estimated DTI', pct(model.readiness.dti), 'Housing plus debt minimums')}
@@ -29,13 +36,11 @@ export function renderMortgageView(model) {
         </div>
       `)}
     </div>
-    <details class="manage-panel">
+    <details id="manage-scenarios" class="manage-panel">
       <summary>Manage mortgage scenarios</summary>
-      <div class="grid two">
-        ${section('Add Scenario', scenarioForm())}
-        ${section('Scenario Editor', editors, 'editor-card')}
-      </div>
-    </details>`;
+      ${section('Scenario Drawers', editors, 'editor-card drawer-list')}
+    </details>
+    ${modal('modal-add-scenario', 'Add Mortgage Scenario', scenarioForm())}`;
 }
 
 function scenarioForm(scenario = {}) {

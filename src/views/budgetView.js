@@ -1,5 +1,5 @@
 import { centsToDollars } from '../services/money.js';
-import { escapeHtml, pageHeader, metricCard, section, table } from './components.js';
+import { drawer, escapeHtml, modal, pageHeader, metricCard, section, table } from './components.js';
 
 export function renderBudgetView(model) {
   const variableCategories = model.categories.filter((cat) => cat.category_type === 'variable');
@@ -36,8 +36,14 @@ export function renderBudgetView(model) {
   </tr>`);
 
   const categoryOptions = model.categories.map((cat) => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
-  const categoryEditors = model.categories.map((cat) => categoryForm(cat)).join('');
-  const billEditors = model.bills.map((bill) => billForm(bill, categoryOptions)).join('');
+  const categoryEditors = model.categories.map((cat) => drawer(
+    `<span>${escapeHtml(cat.name)}</span><small>${escapeHtml(cat.category_type)} / ${centsToDollars(cat.monthly_budget_cents)}</small>`,
+    categoryForm(cat)
+  )).join('');
+  const billEditors = model.bills.map((bill) => drawer(
+    `<span>${escapeHtml(bill.name)}</span><small>Due ${bill.due_day} / ${centsToDollars(bill.amount_cents)}</small>`,
+    billForm(bill, categoryOptions)
+  )).join('');
 
   return `${pageHeader('Budget Control Room', 'Track actual spending against the monthly plan and keep safe-spending decisions visible.', 'Monthly budget')}
     <section class="command-hero budget-command">
@@ -46,7 +52,7 @@ export function renderBudgetView(model) {
         <h2>${centsToDollars(model.summary.safeSpendingCents)}</h2>
         <p>${centsToDollars(model.summary.remainingCashFlowCents)} remains after fixed bills, debt minimums, and savings targets.</p>
         <div class="action-row">
-          <a class="button-link" href="#add-spending">Log spending</a>
+          <a class="button-link" href="#modal-add-spending">Log spending</a>
           <a class="ghost-link" href="/paycheck">Plan next paycheck</a>
         </div>
       </div>
@@ -66,19 +72,27 @@ export function renderBudgetView(model) {
 
     <div class="budget-tile-grid">${budgetTiles || '<p>No variable categories yet.</p>'}</div>
 
+    <div class="action-row toolbar-row">
+      <a class="button-link" href="#modal-add-spending">Add spending entry</a>
+      <a class="ghost-link" href="#modal-add-category">Add category</a>
+      <a class="ghost-link" href="#modal-add-bill">Add bill</a>
+    </div>
+
     <div class="grid two">
-      ${section('Add Spending', spendingForm(categoryOptions), 'anchor-card" id="add-spending')}
       ${section('Recent Spending', table(['Date', 'Merchant', 'Category', 'Amount', ''], spendingRows, 'No spending entries yet.'), 'flush')}
+      ${section('Fixed Bills', table(['Bill', 'Due', 'Amount', 'Category'], billRows, 'No bills found.'), 'flush')}
     </div>
     ${section('Planned vs Actual Detail', table(['Type', 'Category', 'Planned', 'Actual', 'Remaining'], categoryRows, 'No budget categories found.'), 'flush')}
     <details class="manage-panel">
       <summary>Manage budget setup</summary>
       <div class="grid two">
-        ${section('Fixed Bills', table(['Bill', 'Due', 'Amount', 'Category'], billRows, 'No bills found.'), 'flush')}
-        ${section('Budget Category Editor', `${categoryForm()}${categoryEditors}`, 'editor-card')}
-        ${section('Bill Editor', `${billForm(null, categoryOptions)}${billEditors}`, 'editor-card')}
+        ${section('Budget Category Drawers', categoryEditors || '<p>No categories yet.</p>', 'editor-card drawer-list')}
+        ${section('Bill Drawers', billEditors || '<p>No bills yet.</p>', 'editor-card drawer-list')}
       </div>
-    </details>`;
+    </details>
+    ${modal('modal-add-spending', 'Log Spending', spendingForm(categoryOptions))}
+    ${modal('modal-add-category', 'Add Budget Category', categoryForm())}
+    ${modal('modal-add-bill', 'Add Bill', billForm(null, categoryOptions))}`;
 }
 
 function spendingForm(categoryOptions) {

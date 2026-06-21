@@ -490,6 +490,117 @@ dd {
   padding: 0 18px 18px;
 }
 
+.modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  place-items: center;
+  padding: 22px;
+}
+
+.modal-layer:target {
+  display: grid;
+}
+
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100vh - 44px));
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-head h2 {
+  margin: 0;
+}
+
+.modal-close {
+  color: #2563eb;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.drawer-list {
+  display: grid;
+  gap: 10px;
+}
+
+.drawer {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.drawer[open] {
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
+}
+
+.drawer summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 14px 16px;
+  color: #172033;
+  font-weight: 900;
+  list-style: none;
+}
+
+.drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.drawer summary::after {
+  content: "Edit";
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.drawer[open] summary::after {
+  content: "Close";
+}
+
+.drawer summary small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.drawer-body {
+  padding: 0 16px 16px;
+}
+
+.toolbar-row {
+  margin-bottom: 18px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

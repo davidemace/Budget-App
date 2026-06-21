@@ -1,5 +1,5 @@
 import { centsToDollars } from '../services/money.js';
-import { escapeHtml, pageHeader, metricCard, section, table } from './components.js';
+import { escapeHtml, modal, pageHeader, metricCard, section, table } from './components.js';
 
 export function renderPaycheckView(model) {
   const rows = model.paychecks.map((paycheck) => `<tr>
@@ -32,6 +32,10 @@ export function renderPaycheckView(model) {
         <p>${allocation.isShortCents
           ? `This paycheck is short by ${centsToDollars(allocation.isShortCents)} before discretionary buffer.`
           : `${centsToDollars(Math.max(0, allocation.amountCents - totalAllocated))} remains unassigned after recommended buckets.`}</p>
+        <div class="action-row">
+          <a class="button-link" href="#modal-save-paycheck">Save this plan</a>
+          <a class="ghost-link" href="#saved-paycheck-plans">View saved plans</a>
+        </div>
       </div>
       <div class="allocation-summary">
         <span>Recommended split</span>
@@ -52,7 +56,7 @@ export function renderPaycheckView(model) {
       ${metricCard('Savings Allocation', centsToDollars(model.plannedSavingsCents), 'Down payment and emergency fund')}
     </div>
     <div class="grid two">
-      ${section('Allocation Engine', allocationForm(allocation))}
+      ${section('Allocation Engine', allocationCalculatorForm(allocation))}
       ${section('Recommended Allocation', `
         <div class="allocation-grid featured">
           <article><span>Bills due</span><strong>${centsToDollars(allocation.requiredBillsCents)}</strong></article>
@@ -66,20 +70,24 @@ export function renderPaycheckView(model) {
       `)}
     </div>
     ${section('Bills Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No bills due in this paycheck window.'), 'flush')}
-    <details class="manage-panel">
+    <details id="saved-paycheck-plans" class="manage-panel">
       <summary>Saved paycheck plans</summary>
       ${section('Paycheck Plan', table(['Name', 'Date', 'Net', 'Bills', 'Debt', 'Savings'], rows, 'No paychecks found.'), 'flush')}
-    </details>`;
+    </details>
+    ${modal('modal-save-paycheck', 'Save Paycheck Plan', savePaycheckForm(allocation))}`;
 }
 
-function allocationForm(allocation) {
+function allocationCalculatorForm(allocation) {
   return `<form method="get" class="form-grid">
     <label>Paycheck amount<input name="amount" inputmode="decimal" value="${moneyInput(allocation.amountCents)}" required></label>
     <label>Pay date<input name="pay_date" type="date" value="${escapeHtml(allocation.payDate)}" required></label>
     <label>Next pay date<input name="next_pay_date" type="date" value="${escapeHtml(allocation.nextPayDate)}"></label>
     <button type="submit">Calculate Allocation</button>
-  </form>
-  <form method="post" class="form-grid compact">
+  </form>`;
+}
+
+function savePaycheckForm(allocation) {
+  return `<form method="post" class="form-grid">
     <input type="hidden" name="_action" value="save_paycheck">
     <label>Name<input name="name" value="Paycheck"></label>
     <label>Date<input name="pay_date" type="date" value="${escapeHtml(allocation.payDate)}"></label>

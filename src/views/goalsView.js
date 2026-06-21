@@ -1,5 +1,5 @@
 import { centsToDollars, pct } from '../services/money.js';
-import { escapeHtml, pageHeader, progressBar, section, table } from './components.js';
+import { drawer, escapeHtml, modal, pageHeader, progressBar, section, table } from './components.js';
 
 export function renderGoalsView(model) {
   const rows = model.goals.map((goal) => `<tr>
@@ -11,17 +11,22 @@ export function renderGoalsView(model) {
     <td>${centsToDollars(goal.monthly_contribution_cents)}</td>
     <td>${escapeHtml(goal.target_date || '')}</td>
   </tr>`);
-  const editors = model.goals.map((goal) => goalForm(goal)).join('');
+  const editors = model.goals.map((goal) => drawer(
+    `<span>${escapeHtml(goal.name)}</span><small>${pct(goal.progress)} / ${centsToDollars(goal.monthly_contribution_cents)} monthly</small>`,
+    goalForm(goal)
+  )).join('');
 
   return `${pageHeader('Savings Goals', 'Track down payment, emergency fund, closing costs, and other home-buying milestones.')}
+    <div class="action-row toolbar-row">
+      <a class="button-link" href="#modal-add-goal">Add goal</a>
+      <a class="ghost-link" href="#manage-goals">Edit goals</a>
+    </div>
     ${table(['Goal', 'Type', 'Current', 'Target', 'Progress', 'Monthly', 'Target Date'], rows, 'No savings goals found.')}
-    <details class="manage-panel">
+    <details id="manage-goals" class="manage-panel">
       <summary>Manage savings goals</summary>
-      <div class="grid two">
-        ${section('Add Goal', goalForm())}
-        ${section('Goal Editor', editors || '<p>No goals yet.</p>', 'editor-card')}
-      </div>
-    </details>`;
+      ${section('Goal Drawers', editors || '<p>No goals yet.</p>', 'editor-card drawer-list')}
+    </details>
+    ${modal('modal-add-goal', 'Add Savings Goal', goalForm())}`;
 }
 
 function goalForm(goal = {}) {

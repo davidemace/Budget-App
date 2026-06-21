@@ -49,3 +49,23 @@ export function table(headers, rows, emptyText) {
   const head = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
   return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
+
+export function modal(id, title, body) {
+  return `<section id="${escapeHtml(id)}" class="modal-layer" aria-labelledby="${escapeHtml(id)}-title">
+    <a class="modal-scrim" href="#" aria-label="Close ${escapeHtml(title)}"></a>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2 id="${escapeHtml(id)}-title">${escapeHtml(title)}</h2>
+        <a class="modal-close" href="#" aria-label="Close">Close</a>
+      </div>
+      ${body}
+    </div>
+  </section>`;
+}
+
+export function drawer(summary, body, className = '') {
+  return `<details class="drawer ${className}">
+    <summary>${summary}</summary>
+    <div class="drawer-body">${body}</div>
+  </details>`;
+}

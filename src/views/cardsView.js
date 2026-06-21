@@ -1,5 +1,5 @@
 import { centsToDollars, pct } from '../services/money.js';
-import { escapeHtml, pageHeader, metricCard, section, table } from './components.js';
+import { drawer, escapeHtml, modal, pageHeader, metricCard, section, table } from './components.js';
 
 export function renderCardsView(model) {
   const priority = model.recommendations.score;
@@ -15,7 +15,10 @@ export function renderCardsView(model) {
     <td>${centsToDollars(card.minimum_payment_cents)}</td>
   </tr>`);
 
-  const editors = model.cards.map((card) => cardEditor(card)).join('');
+  const editors = model.cards.map((card) => drawer(
+    `<span>${escapeHtml(card.name)}</span><small>${pct(card.utilization_percent)} util / ${pct(card.apr)} APR</small>`,
+    cardEditor(card)
+  )).join('');
   const simulator = renderSimulation(model);
   const cardTiles = model.cards.map((card) => cardTile(card)).join('');
 
@@ -36,6 +39,12 @@ export function renderCardsView(model) {
       </div>
     </section>
 
+    <div class="action-row toolbar-row">
+      <a class="button-link" href="#modal-payment-simulator">Simulate a payment</a>
+      <a class="ghost-link" href="#modal-add-card">Add credit card</a>
+      <a class="ghost-link" href="#manage-credit-cards">Edit cards</a>
+    </div>
+
     <div class="grid metrics">
       ${metricCard('Total Balance', centsToDollars(model.recommendations.totalBalanceCents), 'All cards')}
       ${metricCard('Total Limit', centsToDollars(model.recommendations.totalLimitCents), 'Reported limits')}
@@ -46,7 +55,6 @@ export function renderCardsView(model) {
     <div class="card-rail">${cardTiles || '<p>No cards yet.</p>'}</div>
 
     <div class="grid two">
-      ${section('Payment Simulator', simulator)}
       ${section('Why this matters', `
         <div class="insight-list">
           <p><strong>Score-focused:</strong> ${escapeHtml(model.scoreText)}</p>
@@ -54,20 +62,28 @@ export function renderCardsView(model) {
           <p>Use simulation before recording a payment so the page can show whether the payment crosses 89%, 49%, 29%, or 9%.</p>
         </div>
       `)}
+      ${section('Payment Simulator Result', model.simulation ? renderSimulationResult(model) : '<p>Run a payment simulation to preview balance, utilization, and threshold crossings.</p>')}
     </div>
     ${section('Card Details', table(['Card', 'Balance', 'Limit', 'Utilization', 'To 49%', 'To 29%', 'To 9%', 'APR', 'Minimum'], rows, 'No credit cards found.'), 'flush')}
-    <details class="manage-panel">
+    <details id="manage-credit-cards" class="manage-panel">
       <summary>Manage credit cards</summary>
-      <div class="grid two">
-        ${section('Add Credit Card', cardEditor())}
-        ${section('Edit Cards', editors || '<p>No cards yet.</p>', 'editor-card')}
-      </div>
-    </details>`;
+      ${section('Credit Card Drawers', editors || '<p>No cards yet.</p>', 'editor-card drawer-list')}
+    </details>
+    ${modal('modal-payment-simulator', 'Payment Simulator', simulator)}
+    ${modal('modal-add-card', 'Add Credit Card', cardEditor())}`;
 }
 
 function renderSimulation(model) {
   const options = model.cards.map((card) => `<option value="${card.id}" ${model.simulation?.cardId === card.id ? 'selected' : ''}>${escapeHtml(card.name)}</option>`).join('');
-  const result = model.simulation ? `<div class="simulation-result">
+  return `<form method="get" class="form-grid">
+    <label>Card<select name="simulate_card_id" required>${options}</select></label>
+    <label>Payment<input name="payment" inputmode="decimal" placeholder="250.00" required></label>
+    <button type="submit">Simulate Payment</button>
+  </form>`;
+}
+
+function renderSimulationResult(model) {
+  return `<div class="simulation-result">
     <strong>${escapeHtml(model.simulation.cardName)}</strong>
     <p>New balance: ${centsToDollars(model.simulation.newBalanceCents)}</p>
     <p>New utilization: ${pct(model.simulation.newUtilization)}</p>
@@ -82,13 +98,7 @@ function renderSimulation(model) {
       <label class="full">Note<input name="note" value="Recorded from payment simulator"></label>
       <button type="submit">Record Payment</button>
     </form>
-  </div>` : '<p>Enter a payment amount to preview the new balance and utilization threshold impact.</p>';
-
-  return `<form method="get" class="form-grid">
-    <label>Card<select name="simulate_card_id" required>${options}</select></label>
-    <label>Payment<input name="payment" inputmode="decimal" placeholder="250.00" required></label>
-    <button type="submit">Simulate Payment</button>
-  </form>${result}`;
+  </div>`;
 }
 
 function cardEditor(card = {}) {
