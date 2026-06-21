@@ -3,9 +3,24 @@ import { drawer, escapeHtml, modal, pageHeader, metricCard, section, table } fro
 
 export function renderBudgetView(model) {
   const variableCategories = model.categories.filter((cat) => cat.category_type === 'variable');
+  const fixedCategories = model.categories.filter((cat) => cat.category_type === 'fixed');
+  const debtCategories = model.categories.filter((cat) => cat.category_type === 'debt');
+  const savingsCategories = model.categories.filter((cat) => cat.category_type === 'savings');
   const spentCents = model.categories.reduce((total, cat) => total + Number(cat.actual_spending_cents || 0), 0);
   const plannedCents = model.categories.reduce((total, cat) => total + Number(cat.monthly_budget_cents || 0), 0);
-  const budgetTiles = variableCategories.map((cat) => budgetTile(cat)).join('');
+  const remainingCents = plannedCents - spentCents;
+  const variableTiles = variableCategories.map((cat) => budgetTile(cat)).join('');
+  const fixedTiles = fixedCategories.map((cat) => budgetTile(cat)).join('');
+  const debtTiles = debtCategories.map((cat) => budgetTile(cat)).join('');
+  const savingsTiles = savingsCategories.map((cat) => budgetTile(cat)).join('');
+  const topPressure = [...model.categories]
+    .filter((cat) => Number(cat.monthly_budget_cents || 0) > 0)
+    .sort((a, b) => {
+      const aRatio = Number(a.actual_spending_cents || 0) / Number(a.monthly_budget_cents || 1);
+      const bRatio = Number(b.actual_spending_cents || 0) / Number(b.monthly_budget_cents || 1);
+      return bRatio - aRatio;
+    })
+    .slice(0, 3);
   const categoryRows = model.categories.map((cat) => `<tr>
     <td>${escapeHtml(cat.category_type)}</td>
     <td>${escapeHtml(cat.name)}</td>
@@ -45,32 +60,61 @@ export function renderBudgetView(model) {
     billForm(bill, categoryOptions)
   )).join('');
 
-  return `${pageHeader('Budget Control Room', 'Track actual spending against the monthly plan and keep safe-spending decisions visible.', 'Monthly budget')}
+  return `${pageHeader('Monthly Spending Cockpit', 'A clearer view of what is safe to spend, what is already committed, and what needs attention.', 'Budget')}
     <section class="command-hero budget-command">
       <div>
-        <span class="eyebrow">Safe spending</span>
+        <span class="eyebrow">Safe to spend</span>
         <h2>${centsToDollars(model.summary.safeSpendingCents)}</h2>
-        <p>${centsToDollars(model.summary.remainingCashFlowCents)} remains after fixed bills, debt minimums, and savings targets.</p>
+        <p>${safeSpendNarrative(model.summary.remainingCashFlowCents)}</p>
         <div class="action-row">
           <a class="button-link" href="#modal-add-spending">Log spending</a>
           <a class="ghost-link" href="/paycheck">Plan next paycheck</a>
         </div>
       </div>
       <div class="readiness-dial">
-        <span>Planned vs actual</span>
-        <strong>${centsToDollars(spentCents)}</strong>
-        <small>of ${centsToDollars(plannedCents)} planned categories</small>
+        <span>Month status</span>
+        <strong>${remainingCents >= 0 ? centsToDollars(remainingCents) : `-${centsToDollars(Math.abs(remainingCents))}`}</strong>
+        <small>${remainingCents >= 0 ? 'remaining across planned categories' : 'over planned categories'}</small>
       </div>
     </section>
 
-    <div class="grid metrics">
-      ${metricCard('Income', centsToDollars(model.summary.monthlyIncomeCents), 'Monthly net paychecks')}
-      ${metricCard('Fixed Bills', centsToDollars(model.summary.fixedBillsCents), 'Recurring obligations')}
-      ${metricCard('Debt Minimums', centsToDollars(model.summary.debtMinimumsCents), 'Credit card minimums')}
-      ${metricCard('Safe Spending', centsToDollars(model.summary.safeSpendingCents), 'Variable categories plus remaining cash')}
-    </div>
+    <section class="budget-board">
+      <div class="budget-lane primary">
+        <div class="lane-head"><span>Variable spending</span><strong>${centsToDollars(sumCategory(variableCategories, 'actual_spending_cents'))}</strong></div>
+        <div class="budget-tile-grid">${variableTiles || '<p>No variable categories yet.</p>'}</div>
+      </div>
+      <aside class="budget-aside">
+        <div class="mini-panel">
+          <span>Monthly income</span>
+          <strong>${centsToDollars(model.summary.monthlyIncomeCents)}</strong>
+          <small>Net planned paychecks</small>
+        </div>
+        <div class="mini-panel">
+          <span>Committed</span>
+          <strong>${centsToDollars(model.summary.fixedBillsCents + model.summary.debtMinimumsCents + model.summary.savingsGoalsCents)}</strong>
+          <small>Bills, debt minimums, and savings targets</small>
+        </div>
+        <div class="mini-panel attention">
+          <span>Watch first</span>
+          ${topPressure.map((cat) => `<p><strong>${escapeHtml(cat.name)}</strong> ${centsToDollars(cat.actual_spending_cents)} / ${centsToDollars(cat.monthly_budget_cents)}</p>`).join('') || '<p>No category pressure yet.</p>'}
+        </div>
+      </aside>
+    </section>
 
-    <div class="budget-tile-grid">${budgetTiles || '<p>No variable categories yet.</p>'}</div>
+    <div class="budget-lane-row">
+      <section class="budget-lane">
+        <div class="lane-head"><span>Fixed</span><strong>${centsToDollars(sumCategory(fixedCategories, 'monthly_budget_cents'))}</strong></div>
+        <div class="compact-tile-grid">${fixedTiles || '<p>No fixed categories.</p>'}</div>
+      </section>
+      <section class="budget-lane">
+        <div class="lane-head"><span>Debt</span><strong>${centsToDollars(sumCategory(debtCategories, 'monthly_budget_cents'))}</strong></div>
+        <div class="compact-tile-grid">${debtTiles || '<p>No debt categories.</p>'}</div>
+      </section>
+      <section class="budget-lane">
+        <div class="lane-head"><span>Savings</span><strong>${centsToDollars(sumCategory(savingsCategories, 'monthly_budget_cents'))}</strong></div>
+        <div class="compact-tile-grid">${savingsTiles || '<p>No savings categories.</p>'}</div>
+      </section>
+    </div>
 
     <div class="action-row toolbar-row">
       <a class="button-link" href="#modal-add-spending">Add spending entry</a>
@@ -82,7 +126,10 @@ export function renderBudgetView(model) {
       ${section('Recent Spending', table(['Date', 'Merchant', 'Category', 'Amount', ''], spendingRows, 'No spending entries yet.'), 'flush')}
       ${section('Fixed Bills', table(['Bill', 'Due', 'Amount', 'Category'], billRows, 'No bills found.'), 'flush')}
     </div>
-    ${section('Planned vs Actual Detail', table(['Type', 'Category', 'Planned', 'Actual', 'Remaining'], categoryRows, 'No budget categories found.'), 'flush')}
+    <details class="manage-panel">
+      <summary>Planned vs actual detail</summary>
+      ${section('Category Ledger', table(['Type', 'Category', 'Planned', 'Actual', 'Remaining'], categoryRows, 'No budget categories found.'), 'flush')}
+    </details>
     <details class="manage-panel">
       <summary>Manage budget setup</summary>
       <div class="grid two">
@@ -154,8 +201,20 @@ function budgetTile(cat) {
   return `<article class="budget-tile ${tone}">
     <div class="split"><strong>${escapeHtml(cat.name)}</strong><span>${centsToDollars(remaining)}</span></div>
     <div class="mini-meter"><span style="width:${Math.min(100, percent).toFixed(1)}%"></span></div>
-    <p>${centsToDollars(actual)} spent of ${centsToDollars(planned)}</p>
+    <p>${centsToDollars(actual)} used of ${centsToDollars(planned)}</p>
   </article>`;
+}
+
+function sumCategory(categories, key) {
+  return categories.reduce((total, cat) => total + Number(cat[key] || 0), 0);
+}
+
+function safeSpendNarrative(remainingCashFlowCents) {
+  if (remainingCashFlowCents >= 0) {
+    return `${centsToDollars(remainingCashFlowCents)} remains after fixed bills, debt minimums, and savings targets.`;
+  }
+
+  return `${centsToDollars(Math.abs(remainingCashFlowCents))} needs to be trimmed or covered before spending feels safe.`;
 }
 
 function option(value, current) {
