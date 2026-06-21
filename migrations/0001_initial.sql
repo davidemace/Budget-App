@@ -1,0 +1,82 @@
+CREATE TABLE IF NOT EXISTS budget_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('income','fixed','variable','debt','savings')),
+  monthly_amount_cents INTEGER NOT NULL DEFAULT 0,
+  safe_spending_cents INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS credit_cards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  balance_cents INTEGER NOT NULL DEFAULT 0,
+  credit_limit_cents INTEGER NOT NULL DEFAULT 0,
+  apr REAL NOT NULL DEFAULT 0,
+  minimum_payment_cents INTEGER NOT NULL DEFAULT 0,
+  payoff_priority INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS paychecks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  label TEXT NOT NULL,
+  pay_date TEXT NOT NULL,
+  net_amount_cents INTEGER NOT NULL DEFAULT 0,
+  planned_bills_cents INTEGER NOT NULL DEFAULT 0,
+  planned_debt_cents INTEGER NOT NULL DEFAULT 0,
+  planned_savings_cents INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS bills (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+  amount_cents INTEGER NOT NULL DEFAULT 0,
+  category TEXT NOT NULL DEFAULT 'fixed',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS savings_goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  goal_type TEXT NOT NULL CHECK (goal_type IN ('down_payment','emergency_fund','closing_costs','other')),
+  target_cents INTEGER NOT NULL DEFAULT 0,
+  current_cents INTEGER NOT NULL DEFAULT 0,
+  monthly_target_cents INTEGER NOT NULL DEFAULT 0,
+  target_date TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mortgage_scenarios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  home_price_cents INTEGER NOT NULL,
+  down_payment_cents INTEGER NOT NULL DEFAULT 0,
+  rate REAL NOT NULL DEFAULT 0,
+  term_years INTEGER NOT NULL DEFAULT 30,
+  annual_tax_cents INTEGER NOT NULL DEFAULT 0,
+  annual_insurance_cents INTEGER NOT NULL DEFAULT 0,
+  monthly_hoa_cents INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payment_plan_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  card_id INTEGER NOT NULL,
+  planned_month TEXT NOT NULL,
+  payment_cents INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (card_id) REFERENCES credit_cards(id) ON DELETE CASCADE
+);

@@ -1,0 +1,12 @@
+name = "mace-budget-worker"
+main = "src/index.js"
+compatibility_date = "2026-06-21"
+
+routes = [
+  { pattern = "budget.davidmace.us", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mace-budget-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
