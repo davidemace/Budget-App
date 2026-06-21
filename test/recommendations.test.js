@@ -99,3 +99,24 @@ test('does not add every credit card minimum unless it is due before the next pa
   assert.equal(allocation.dueBills.length, 1);
   assert.equal(allocation.cardMinimumBillsDue.length, 0);
 });
+
+test('does not duplicate due dates when paycheck window crosses months', () => {
+  const allocation = allocatePaycheck({
+    amountCents: 230300,
+    payDate: '2026-06-30',
+    nextPayDate: '2026-07-15',
+    bills: [
+      { name: 'Electric and gas', due_day: 8, amount_cents: 18000 },
+      { name: 'Water and trash', due_day: 12, amount_cents: 8500 },
+      { name: 'Apple Card minimum', due_day: 5, amount_cents: 17000 }
+    ],
+    cards: [{ name: 'Apple Card', balance_cents: 100000, credit_limit_cents: 200000, minimum_payment_cents: 17000, apr: 20 }],
+    goals: [],
+    paychecks: []
+  });
+
+  assert.equal(allocation.requiredBillsCents, 26500);
+  assert.equal(allocation.cardMinimumsDueCents, 17000);
+  assert.deepEqual(allocation.dueBills.map((bill) => bill.name), ['Electric and gas', 'Water and trash']);
+  assert.deepEqual(allocation.cardMinimumBillsDue.map((bill) => bill.name), ['Apple Card minimum']);
+});

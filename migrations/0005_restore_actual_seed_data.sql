@@ -51,12 +51,12 @@ INSERT INTO paychecks (name, pay_date, net_amount_cents, planned_bills_cents, pl
   ('Additional monthly check', '2026-07-31', 240100, 0, 50000, 125000, 'Monthly additional check earmarked for debt payoff and down payment savings.');
 
 INSERT INTO bills (name, due_day, amount_cents, category_id, is_fixed) VALUES
-  ('Housing payment / rent placeholder', 1, 165000, (SELECT id FROM budget_categories WHERE name = 'Housing'), 1),
-  ('Electric and gas placeholder', 8, 18000, (SELECT id FROM budget_categories WHERE name = 'Utilities'), 1),
-  ('Water and trash placeholder', 12, 8500, (SELECT id FROM budget_categories WHERE name = 'Utilities'), 1),
-  ('Internet placeholder', 15, 8500, (SELECT id FROM budget_categories WHERE name = 'Internet and phones'), 1),
-  ('Mobile phones placeholder', 21, 10500, (SELECT id FROM budget_categories WHERE name = 'Internet and phones'), 1),
-  ('Car insurance placeholder', 24, 14500, (SELECT id FROM budget_categories WHERE name = 'Fuel and transportation'), 1),
+  ('Estimated housing payment / rent', 1, 165000, (SELECT id FROM budget_categories WHERE name = 'Housing'), 1),
+  ('Estimated electric and gas', 8, 18000, (SELECT id FROM budget_categories WHERE name = 'Utilities'), 1),
+  ('Estimated water and trash', 12, 8500, (SELECT id FROM budget_categories WHERE name = 'Utilities'), 1),
+  ('Estimated internet', 15, 8500, (SELECT id FROM budget_categories WHERE name = 'Internet and phones'), 1),
+  ('Estimated mobile phones', 21, 10500, (SELECT id FROM budget_categories WHERE name = 'Internet and phones'), 1),
+  ('Estimated car insurance', 24, 14500, (SELECT id FROM budget_categories WHERE name = 'Fuel and transportation'), 1),
   ('Wells Fargo Reflect minimum', 5, 29600, (SELECT id FROM budget_categories WHERE name = 'Debt minimums'), 1),
   ('Apple Card minimum', 5, 17000, (SELECT id FROM budget_categories WHERE name = 'Debt minimums'), 1),
   ('Capital One QuicksilverOne minimum', 5, 8800, (SELECT id FROM budget_categories WHERE name = 'Debt minimums'), 1),

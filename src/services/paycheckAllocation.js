@@ -85,18 +85,18 @@ function normalizeName(value) {
 }
 
 function possibleDueDates(start, end, dueDay) {
-  const dates = [];
+  const datesByDay = new Map();
   for (let offset = -1; offset <= 2; offset += 1) {
     const date = new Date(start.getFullYear(), start.getMonth() + offset, Math.min(28, dueDay));
     date.setDate(Math.min(dueDay, daysInMonth(date.getFullYear(), date.getMonth())));
-    dates.push(date);
+    datesByDay.set(formatDate(date), date);
   }
   if (end.getMonth() !== start.getMonth() || end.getFullYear() !== start.getFullYear()) {
     const date = new Date(end.getFullYear(), end.getMonth(), Math.min(28, dueDay));
     date.setDate(Math.min(dueDay, daysInMonth(date.getFullYear(), date.getMonth())));
-    dates.push(date);
+    datesByDay.set(formatDate(date), date);
   }
-  return dates;
+  return [...datesByDay.values()];
 }
 
 function daysInMonth(year, month) {
