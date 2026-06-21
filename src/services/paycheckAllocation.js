@@ -30,22 +30,32 @@ export function billsDueBetween(bills = [], payDate, nextPayDate) {
   return dueRows.sort((a, b) => a.due_date.localeCompare(b.due_date) || a.name.localeCompare(b.name));
 }
 
-export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = [], cards = [], goals = [], paychecks = [] }) {
+export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = [], cards = [], goals = [], categories = [], paychecks = [] }) {
   const resolvedNextPayDate = nextPayDate || inferNextPaycheckDate(payDate, paychecks);
   const allDueBills = billsDueBetween(bills, payDate, resolvedNextPayDate);
   const cardMinimumBillsDue = allDueBills.filter((bill) => isCreditCardMinimumBill(bill, cards));
   const dueBills = allDueBills.filter((bill) => !isCreditCardMinimumBill(bill, cards));
+  const spendingEnvelopes = variableSpendingEnvelopes(categories, payDate, paychecks);
   const requiredBillsCents = sumBy(dueBills, 'amount_cents');
   const cardMinimumsDueCents = sumBy(cardMinimumBillsDue, 'amount_cents');
+  const spendingEnvelopesCents = sumBy(spendingEnvelopes, 'amount_cents');
   const downPaymentGoal = goals.find((goal) => goal.goal_type === 'down_payment');
   const emergencyGoal = goals.find((goal) => goal.goal_type === 'emergency_fund');
-  const downPaymentTargetCents = Math.round((downPaymentGoal?.monthly_contribution_cents || 0) / 2);
-  const emergencyTargetCents = Math.round((emergencyGoal?.monthly_contribution_cents || 0) / 2);
-  const requiredBaseCents = requiredBillsCents + cardMinimumsDueCents + downPaymentTargetCents + emergencyTargetCents;
+  const paycheckCount = paychecksInMonth(payDate, paychecks);
+  const downPaymentTargetCents = Math.round((downPaymentGoal?.monthly_contribution_cents || 0) / paycheckCount);
+  const emergencyTargetCents = Math.round((emergencyGoal?.monthly_contribution_cents || 0) / paycheckCount);
+  const requiredBaseCents = requiredBillsCents + cardMinimumsDueCents + spendingEnvelopesCents + downPaymentTargetCents + emergencyTargetCents;
   const availableAfterRequiredCents = amountCents - requiredBaseCents;
   const bufferCents = Math.max(0, Math.round(Math.max(0, availableAfterRequiredCents) * 0.45));
   const extraCardPaymentCents = Math.max(0, availableAfterRequiredCents - bufferCents);
   const priorityCard = scoreFocusedRecommendation(cards);
+  const totalAllocatedCents = requiredBillsCents
+    + cardMinimumsDueCents
+    + spendingEnvelopesCents
+    + downPaymentTargetCents
+    + emergencyTargetCents
+    + extraCardPaymentCents
+    + bufferCents;
 
   return {
     payDate,
@@ -53,18 +63,46 @@ export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = []
     amountCents,
     dueBills,
     cardMinimumBillsDue,
+    spendingEnvelopes,
     requiredBillsCents,
     cardMinimumsDueCents,
+    spendingEnvelopesCents,
     debtMinimumsCents: cardMinimumsDueCents,
     downPaymentSavingsCents: downPaymentTargetCents,
     emergencySavingsCents: emergencyTargetCents,
     creditCardPaymentCents: cardMinimumsDueCents + extraCardPaymentCents,
     extraCardPaymentCents,
     safeSpendingBufferCents: bufferCents,
-    remainingCents: amountCents - requiredBillsCents - cardMinimumsDueCents - downPaymentTargetCents - emergencyTargetCents - extraCardPaymentCents - bufferCents,
+    totalAllocatedCents,
+    remainingCents: amountCents - totalAllocatedCents,
     priorityCard,
     isShortCents: Math.max(0, requiredBaseCents - amountCents)
   };
+}
+
+function variableSpendingEnvelopes(categories = [], payDate, paychecks = []) {
+  const paycheckCount = paychecksInMonth(payDate, paychecks);
+  return categories
+    .filter((category) => category.category_type === 'variable' && Number(category.monthly_budget_cents) > 0)
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      monthly_budget_cents: category.monthly_budget_cents,
+      actual_spending_cents: category.actual_spending_cents || 0,
+      amount_cents: Math.round(category.monthly_budget_cents / paycheckCount)
+    }));
+}
+
+function paychecksInMonth(payDate, paychecks = []) {
+  const current = parseLocalDate(payDate);
+  const count = paychecks
+    .filter((paycheck) => {
+      const date = parseLocalDate(paycheck.pay_date);
+      return date.getFullYear() === current.getFullYear() && date.getMonth() === current.getMonth();
+    })
+    .length;
+
+  return Math.max(1, count || 2);
 }
 
 function isCreditCardMinimumBill(bill, cards = []) {

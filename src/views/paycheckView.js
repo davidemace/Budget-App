@@ -12,11 +12,7 @@ export function renderPaycheckView(model) {
   </tr>`);
 
   const allocation = model.allocation;
-  const totalAllocated = allocation.requiredBillsCents
-    + allocation.creditCardPaymentCents
-    + allocation.downPaymentSavingsCents
-    + allocation.emergencySavingsCents
-    + allocation.safeSpendingBufferCents;
+  const totalAllocated = allocation.totalAllocatedCents;
   const dueBillRows = allocation.dueBills.map((bill) => `<tr>
     <td>${escapeHtml(bill.name)}</td>
     <td>${escapeHtml(bill.due_date)}</td>
@@ -26,6 +22,12 @@ export function renderPaycheckView(model) {
     <td>${escapeHtml(bill.name)}</td>
     <td>${escapeHtml(bill.due_date)}</td>
     <td>${centsToDollars(bill.amount_cents)}</td>
+  </tr>`);
+  const spendingRows = allocation.spendingEnvelopes.map((envelope) => `<tr>
+    <td>${escapeHtml(envelope.name)}</td>
+    <td>${centsToDollars(envelope.monthly_budget_cents)}</td>
+    <td>${centsToDollars(envelope.amount_cents)}</td>
+    <td>${centsToDollars(Math.max(0, envelope.monthly_budget_cents - envelope.actual_spending_cents))}</td>
   </tr>`);
 
   return `${pageHeader('Paycheck Allocation Console', 'Turn the next paycheck into a clear plan before the money lands.', 'Paycheck planner')}
@@ -47,6 +49,7 @@ export function renderPaycheckView(model) {
         <div class="allocation-bar">
           ${barSegment('Bills', allocation.requiredBillsCents, allocation.amountCents)}
           ${barSegment('Cards', allocation.creditCardPaymentCents, allocation.amountCents)}
+          ${barSegment('Spending', allocation.spendingEnvelopesCents, allocation.amountCents)}
           ${barSegment('Savings', allocation.downPaymentSavingsCents + allocation.emergencySavingsCents, allocation.amountCents)}
           ${barSegment('Buffer', allocation.safeSpendingBufferCents, allocation.amountCents)}
         </div>
@@ -60,12 +63,30 @@ export function renderPaycheckView(model) {
       ${metricCard('Debt Allocation', centsToDollars(model.plannedDebtCents), 'Extra payoff plus minimums')}
       ${metricCard('Savings Allocation', centsToDollars(model.plannedSavingsCents), 'Down payment and emergency fund')}
     </div>
+
+    <div class="paycheck-board">
+      ${section('Paycheck Dollar Plan', `
+        <div class="allocation-ledger">
+          ${ledgerRow('Bills and loans due', allocation.requiredBillsCents)}
+          ${ledgerRow('Card minimums due', allocation.cardMinimumsDueCents)}
+          ${ledgerRow('Known spending envelopes', allocation.spendingEnvelopesCents)}
+          ${ledgerRow('Down payment savings', allocation.downPaymentSavingsCents)}
+          ${ledgerRow('Emergency fund savings', allocation.emergencySavingsCents)}
+          ${ledgerRow('Extra card payoff', allocation.extraCardPaymentCents)}
+          ${ledgerRow('Safe spending buffer', allocation.safeSpendingBufferCents)}
+          ${ledgerRow('Still unassigned', Math.max(0, allocation.remainingCents), 'muted')}
+          ${ledgerRow('Shortfall', allocation.isShortCents, allocation.isShortCents ? 'danger' : 'muted')}
+        </div>
+      `)}
+      ${section('Planning Inputs', allocationCalculatorForm(allocation))}
+    </div>
+
     <div class="grid two">
-      ${section('Allocation Engine', allocationCalculatorForm(allocation))}
       ${section('Recommended Allocation', `
         <div class="allocation-grid featured">
           <article><span>Bills and loans due</span><strong>${centsToDollars(allocation.requiredBillsCents)}</strong></article>
           <article><span>Card minimums + extra payoff</span><strong>${centsToDollars(allocation.creditCardPaymentCents)}</strong></article>
+          <article><span>Known spending</span><strong>${centsToDollars(allocation.spendingEnvelopesCents)}</strong></article>
           <article><span>Down payment</span><strong>${centsToDollars(allocation.downPaymentSavingsCents)}</strong></article>
           <article><span>Emergency fund</span><strong>${centsToDollars(allocation.emergencySavingsCents)}</strong></article>
           <article><span>Safe spending buffer</span><strong>${centsToDollars(allocation.safeSpendingBufferCents)}</strong></article>
@@ -73,6 +94,7 @@ export function renderPaycheckView(model) {
         </div>
         <p>Card payment includes ${centsToDollars(allocation.cardMinimumsDueCents)} in card minimums due before the next paycheck plus ${centsToDollars(allocation.extraCardPaymentCents)} in extra payoff. ${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
       `)}
+      ${section('Known Spending Before Next Paycheck', table(['Envelope', 'Monthly Plan', 'This Paycheck', 'Monthly Remaining'], spendingRows, 'No variable spending envelopes found.'), 'flush')}
     </div>
     <div class="grid two">
       ${section('Bills And Loans Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No non-card bills due in this paycheck window.'), 'flush')}
@@ -111,6 +133,13 @@ function savePaycheckForm(allocation) {
 function barSegment(label, amountCents, totalCents) {
   const percent = totalCents > 0 ? Math.max(3, (amountCents / totalCents) * 100) : 0;
   return amountCents > 0 ? `<span style="width:${percent.toFixed(1)}%" title="${label}"></span>` : '';
+}
+
+function ledgerRow(label, amountCents, tone = '') {
+  return `<div class="${escapeHtml(tone)}">
+    <span>${escapeHtml(label)}</span>
+    <strong>${centsToDollars(amountCents)}</strong>
+  </div>`;
 }
 
 function moneyInput(cents = 0) {

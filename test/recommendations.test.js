@@ -120,3 +120,28 @@ test('does not duplicate due dates when paycheck window crosses months', () => {
   assert.deepEqual(allocation.dueBills.map((bill) => bill.name), ['Electric and gas', 'Water and trash']);
   assert.deepEqual(allocation.cardMinimumBillsDue.map((bill) => bill.name), ['Apple Card minimum']);
 });
+
+test('reserves known variable spending envelopes from each paycheck', () => {
+  const allocation = allocatePaycheck({
+    amountCents: 230300,
+    payDate: '2026-07-15',
+    nextPayDate: '2026-07-31',
+    bills: [],
+    cards: [],
+    goals: [],
+    categories: [
+      { name: 'Groceries', category_type: 'variable', monthly_budget_cents: 72000, actual_spending_cents: 25000 },
+      { name: 'Fuel', category_type: 'variable', monthly_budget_cents: 36000, actual_spending_cents: 10000 },
+      { name: 'Housing', category_type: 'fixed', monthly_budget_cents: 165000, actual_spending_cents: 0 }
+    ],
+    paychecks: [
+      { pay_date: '2026-07-15' },
+      { pay_date: '2026-07-31' }
+    ]
+  });
+
+  assert.equal(allocation.spendingEnvelopesCents, 54000);
+  assert.deepEqual(allocation.spendingEnvelopes.map((envelope) => envelope.name), ['Groceries', 'Fuel']);
+  assert.equal(allocation.spendingEnvelopes[0].amount_cents, 36000);
+  assert.equal(allocation.spendingEnvelopes[0].monthly_budget_cents - allocation.spendingEnvelopes[0].actual_spending_cents, 47000);
+});

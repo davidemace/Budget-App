@@ -1,4 +1,4 @@
-import { getBills, getCreditCards, getPaychecks, getSavingsGoals, run } from '../db.js';
+import { getBills, getBudgetCategories, getCreditCards, getPaychecks, getSavingsGoals, run } from '../db.js';
 import { formCents, formString } from '../services/forms.js';
 import { sumBy } from '../services/money.js';
 import { allocatePaycheck } from '../services/paycheckAllocation.js';
@@ -11,11 +11,12 @@ export async function paycheck({ request, env, api }) {
   }
 
   const url = new URL(request.url);
-  const [paychecks, bills, cards, goals] = await Promise.all([
+  const [paychecks, bills, cards, goals, categories] = await Promise.all([
     getPaychecks(env),
     getBills(env),
     getCreditCards(env),
-    getSavingsGoals(env)
+    getSavingsGoals(env),
+    getBudgetCategories(env)
   ]);
   const amountCents = url.searchParams.has('amount') ? formLikeCents(url.searchParams.get('amount')) : paychecks[0]?.net_amount_cents || 0;
   const payDate = url.searchParams.get('pay_date') || paychecks[0]?.pay_date || new Date().toISOString().slice(0, 10);
@@ -27,12 +28,14 @@ export async function paycheck({ request, env, api }) {
     bills,
     cards,
     goals,
+    categories,
     paychecks
   });
 
   const model = {
     paychecks,
     bills,
+    categories,
     allocation,
     monthlyIncomeCents: sumBy(paychecks, 'net_amount_cents'),
     plannedBillsCents: sumBy(paychecks, 'planned_bills_cents'),

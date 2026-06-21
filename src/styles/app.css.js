@@ -563,11 +563,65 @@ dd {
 
 .allocation-bar span:nth-child(1) { background: #60a5fa; }
 .allocation-bar span:nth-child(2) { background: #f97316; }
-.allocation-bar span:nth-child(3) { background: #22c55e; }
-.allocation-bar span:nth-child(4) { background: #eab308; }
+.allocation-bar span:nth-child(3) { background: #14b8a6; }
+.allocation-bar span:nth-child(4) { background: #22c55e; }
+.allocation-bar span:nth-child(5) { background: #eab308; }
 
 .allocation-grid.featured article {
   background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.paycheck-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.allocation-ledger {
+  display: grid;
+  gap: 10px;
+}
+
+.allocation-ledger div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.allocation-ledger span {
+  color: #475569;
+  font-weight: 800;
+}
+
+.allocation-ledger strong {
+  color: #172033;
+  font-size: 20px;
+}
+
+.allocation-ledger .muted {
+  background: #ffffff;
+}
+
+.allocation-ledger .muted span,
+.allocation-ledger .muted strong {
+  color: #64748b;
+}
+
+.allocation-ledger .danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.allocation-ledger .danger span,
+.allocation-ledger .danger strong {
+  color: #991b1b;
 }
 
 .manage-panel {
@@ -836,7 +890,8 @@ button.danger {
   .scenario-grid { grid-template-columns: 1fr 1fr; }
   .command-hero { grid-template-columns: 1fr; }
   .budget-board,
-  .budget-lane-row { grid-template-columns: 1fr; }
+  .budget-lane-row,
+  .paycheck-board { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 780px) {
