@@ -1,4 +1,4 @@
-name = "mace-budget-worker"
+name = "budgetapp"
 main = "src/index.js"
 compatibility_date = "2026-06-20"
 
@@ -8,5 +8,5 @@ routes = [
 
 [[d1_databases]]
 binding = "DB"
-database_name = "mace-budget-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_name = "budget_db"
+database_id = "3d6f2446-16c0-4dcc-b766-f9f074a6433e"

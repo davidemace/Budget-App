@@ -11,7 +11,7 @@ npm install
 Create the D1 database:
 
 ```bash
-npx wrangler d1 create mace-budget-db
+npx wrangler d1 create budget_db
 ```
 
 Copy the returned `database_id` into `wrangler.toml`.
