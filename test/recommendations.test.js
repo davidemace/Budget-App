@@ -60,6 +60,7 @@ test('allocates paycheck against bills before next paycheck', () => {
     bills: [
       { name: 'Rent', due_day: 1, amount_cents: 100000 },
       { name: 'Internet', due_day: 10, amount_cents: 10000 },
+      { name: 'Card minimum', due_day: 10, amount_cents: 2500 },
       { name: 'Phone', due_day: 22, amount_cents: 12000 }
     ],
     cards: [{ name: 'Card', balance_cents: 50000, credit_limit_cents: 100000, minimum_payment_cents: 2500, apr: 20 }],
@@ -71,8 +72,30 @@ test('allocates paycheck against bills before next paycheck', () => {
   });
 
   assert.equal(allocation.requiredBillsCents, 10000);
+  assert.equal(allocation.cardMinimumsDueCents, 2500);
   assert.equal(allocation.debtMinimumsCents, 2500);
   assert.equal(allocation.downPaymentSavingsCents, 20000);
   assert.equal(allocation.emergencySavingsCents, 10000);
   assert.equal(allocation.dueBills.length, 1);
+  assert.equal(allocation.cardMinimumBillsDue.length, 1);
+});
+
+test('does not add every credit card minimum unless it is due before the next paycheck', () => {
+  const allocation = allocatePaycheck({
+    amountCents: 200000,
+    payDate: '2026-07-15',
+    nextPayDate: '2026-07-31',
+    bills: [
+      { name: 'Internet', due_day: 15, amount_cents: 10000 },
+      { name: 'Card minimum', due_day: 5, amount_cents: 2500 }
+    ],
+    cards: [{ name: 'Card', balance_cents: 50000, credit_limit_cents: 100000, minimum_payment_cents: 2500, apr: 20 }],
+    goals: [],
+    paychecks: []
+  });
+
+  assert.equal(allocation.requiredBillsCents, 10000);
+  assert.equal(allocation.cardMinimumsDueCents, 0);
+  assert.equal(allocation.dueBills.length, 1);
+  assert.equal(allocation.cardMinimumBillsDue.length, 0);
 });

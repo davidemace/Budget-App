@@ -22,6 +22,11 @@ export function renderPaycheckView(model) {
     <td>${escapeHtml(bill.due_date)}</td>
     <td>${centsToDollars(bill.amount_cents)}</td>
   </tr>`);
+  const cardMinimumRows = allocation.cardMinimumBillsDue.map((bill) => `<tr>
+    <td>${escapeHtml(bill.name)}</td>
+    <td>${escapeHtml(bill.due_date)}</td>
+    <td>${centsToDollars(bill.amount_cents)}</td>
+  </tr>`);
 
   return `${pageHeader('Paycheck Allocation Console', 'Turn the next paycheck into a clear plan before the money lands.', 'Paycheck planner')}
     <section class="command-hero paycheck-command">
@@ -59,17 +64,20 @@ export function renderPaycheckView(model) {
       ${section('Allocation Engine', allocationCalculatorForm(allocation))}
       ${section('Recommended Allocation', `
         <div class="allocation-grid featured">
-          <article><span>Bills due</span><strong>${centsToDollars(allocation.requiredBillsCents)}</strong></article>
-          <article><span>Credit card payment</span><strong>${centsToDollars(allocation.creditCardPaymentCents)}</strong></article>
+          <article><span>Bills and loans due</span><strong>${centsToDollars(allocation.requiredBillsCents)}</strong></article>
+          <article><span>Card minimums + extra payoff</span><strong>${centsToDollars(allocation.creditCardPaymentCents)}</strong></article>
           <article><span>Down payment</span><strong>${centsToDollars(allocation.downPaymentSavingsCents)}</strong></article>
           <article><span>Emergency fund</span><strong>${centsToDollars(allocation.emergencySavingsCents)}</strong></article>
           <article><span>Safe spending buffer</span><strong>${centsToDollars(allocation.safeSpendingBufferCents)}</strong></article>
           <article><span>Shortfall</span><strong>${centsToDollars(allocation.isShortCents)}</strong></article>
         </div>
-        <p>${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
+        <p>Card payment includes ${centsToDollars(allocation.cardMinimumsDueCents)} in card minimums due before the next paycheck plus ${centsToDollars(allocation.extraCardPaymentCents)} in extra payoff. ${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
       `)}
     </div>
-    ${section('Bills Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No bills due in this paycheck window.'), 'flush')}
+    <div class="grid two">
+      ${section('Bills And Loans Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No non-card bills due in this paycheck window.'), 'flush')}
+      ${section('Card Minimums Before Next Paycheck', table(['Card Minimum', 'Due Date', 'Amount'], cardMinimumRows, 'No card minimums due in this paycheck window.'), 'flush')}
+    </div>
     <details id="saved-paycheck-plans" class="manage-panel">
       <summary>Saved paycheck plans</summary>
       ${section('Paycheck Plan', table(['Name', 'Date', 'Net', 'Bills', 'Debt', 'Savings'], rows, 'No paychecks found.'), 'flush')}
@@ -92,8 +100,8 @@ function savePaycheckForm(allocation) {
     <label>Name<input name="name" value="Paycheck"></label>
     <label>Date<input name="pay_date" type="date" value="${escapeHtml(allocation.payDate)}"></label>
     <label>Net<input name="net_amount" inputmode="decimal" value="${moneyInput(allocation.amountCents)}"></label>
-    <label>Bills<input name="planned_bills" inputmode="decimal" value="${moneyInput(allocation.requiredBillsCents)}"></label>
-    <label>Debt<input name="planned_debt" inputmode="decimal" value="${moneyInput(allocation.creditCardPaymentCents)}"></label>
+    <label>Bills and loans<input name="planned_bills" inputmode="decimal" value="${moneyInput(allocation.requiredBillsCents)}"></label>
+    <label>Card payment<input name="planned_debt" inputmode="decimal" value="${moneyInput(allocation.creditCardPaymentCents)}"></label>
     <label>Savings<input name="planned_savings" inputmode="decimal" value="${moneyInput(allocation.downPaymentSavingsCents + allocation.emergencySavingsCents)}"></label>
     <label class="full">Notes<input name="notes" value="Generated from allocation engine"></label>
     <button type="submit">Save Paycheck Plan</button>

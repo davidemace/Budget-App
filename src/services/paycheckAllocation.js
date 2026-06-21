@@ -32,14 +32,16 @@ export function billsDueBetween(bills = [], payDate, nextPayDate) {
 
 export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = [], cards = [], goals = [], paychecks = [] }) {
   const resolvedNextPayDate = nextPayDate || inferNextPaycheckDate(payDate, paychecks);
-  const dueBills = billsDueBetween(bills, payDate, resolvedNextPayDate);
+  const allDueBills = billsDueBetween(bills, payDate, resolvedNextPayDate);
+  const cardMinimumBillsDue = allDueBills.filter((bill) => isCreditCardMinimumBill(bill, cards));
+  const dueBills = allDueBills.filter((bill) => !isCreditCardMinimumBill(bill, cards));
   const requiredBillsCents = sumBy(dueBills, 'amount_cents');
-  const debtMinimumsCents = sumBy(cards, 'minimum_payment_cents');
+  const cardMinimumsDueCents = sumBy(cardMinimumBillsDue, 'amount_cents');
   const downPaymentGoal = goals.find((goal) => goal.goal_type === 'down_payment');
   const emergencyGoal = goals.find((goal) => goal.goal_type === 'emergency_fund');
   const downPaymentTargetCents = Math.round((downPaymentGoal?.monthly_contribution_cents || 0) / 2);
   const emergencyTargetCents = Math.round((emergencyGoal?.monthly_contribution_cents || 0) / 2);
-  const requiredBaseCents = requiredBillsCents + debtMinimumsCents + downPaymentTargetCents + emergencyTargetCents;
+  const requiredBaseCents = requiredBillsCents + cardMinimumsDueCents + downPaymentTargetCents + emergencyTargetCents;
   const availableAfterRequiredCents = amountCents - requiredBaseCents;
   const bufferCents = Math.max(0, Math.round(Math.max(0, availableAfterRequiredCents) * 0.45));
   const extraCardPaymentCents = Math.max(0, availableAfterRequiredCents - bufferCents);
@@ -50,17 +52,36 @@ export function allocatePaycheck({ amountCents, payDate, nextPayDate, bills = []
     nextPayDate: resolvedNextPayDate,
     amountCents,
     dueBills,
+    cardMinimumBillsDue,
     requiredBillsCents,
-    debtMinimumsCents,
+    cardMinimumsDueCents,
+    debtMinimumsCents: cardMinimumsDueCents,
     downPaymentSavingsCents: downPaymentTargetCents,
     emergencySavingsCents: emergencyTargetCents,
-    creditCardPaymentCents: debtMinimumsCents + extraCardPaymentCents,
+    creditCardPaymentCents: cardMinimumsDueCents + extraCardPaymentCents,
     extraCardPaymentCents,
     safeSpendingBufferCents: bufferCents,
-    remainingCents: amountCents - requiredBillsCents - debtMinimumsCents - downPaymentTargetCents - emergencyTargetCents - extraCardPaymentCents - bufferCents,
+    remainingCents: amountCents - requiredBillsCents - cardMinimumsDueCents - downPaymentTargetCents - emergencyTargetCents - extraCardPaymentCents - bufferCents,
     priorityCard,
     isShortCents: Math.max(0, requiredBaseCents - amountCents)
   };
+}
+
+function isCreditCardMinimumBill(bill, cards = []) {
+  const billName = normalizeName(bill?.name);
+  if (!billName.includes('minimum')) return false;
+
+  return cards.some((card) => {
+    const cardName = normalizeName(card?.name);
+    return cardName && billName.includes(cardName);
+  });
+}
+
+function normalizeName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 function possibleDueDates(start, end, dueDay) {
