@@ -8,7 +8,7 @@ import {
   scoreFocusedRecommendation,
   utilization
 } from '../src/services/recommendations.js';
-import { allocatePaycheck } from '../src/services/paycheckAllocation.js';
+import { allocatePaycheck, inferNextPaycheckDate, paycheckScheduleFor } from '../src/services/paycheckAllocation.js';
 
 test('calculates utilization percentage', () => {
   assert.equal(utilization(45000, 100000), 45);
@@ -173,4 +173,19 @@ test('never recommends more allocation than the paycheck amount', () => {
   assert.equal(allocation.extraCardPaymentCents, 0);
   assert.equal(allocation.safeSpendingBufferCents, 0);
   assert.equal(allocation.unfundedPlanCents, 55000);
+});
+
+test('generates real paycheck cadence for McGraw and WISD', () => {
+  const paychecks = [
+    { name: 'McGraw Hill paycheck - first half', pay_date: '2026-07-15', net_amount_cents: 230300 },
+    { name: 'McGraw Hill paycheck - last workday', pay_date: '2026-07-31', net_amount_cents: 230300 },
+    { name: 'WISD paycheck', pay_date: '2026-07-24', net_amount_cents: 240100 }
+  ];
+
+  const schedule = paycheckScheduleFor('2026-07-15', paychecks).filter((paycheck) => paycheck.pay_date.startsWith('2026-07'));
+
+  assert.deepEqual(schedule.map((paycheck) => paycheck.pay_date), ['2026-07-15', '2026-07-24', '2026-07-31']);
+  assert.equal(inferNextPaycheckDate('2026-07-15', paychecks), '2026-07-24');
+  assert.equal(inferNextPaycheckDate('2026-07-24', paychecks), '2026-07-31');
+  assert.equal(inferNextPaycheckDate('2026-07-31', paychecks), '2026-08-15');
 });

@@ -46,9 +46,9 @@ INSERT INTO credit_cards (name, balance_cents, credit_limit_cents, apr, minimum_
   ('Rooms To Go', 0, 1000000, 0.00, 0, 10);
 
 INSERT INTO paychecks (name, pay_date, net_amount_cents, planned_bills_cents, planned_debt_cents, planned_savings_cents, notes) VALUES
-  ('McGraw Hill paycheck - first half', '2026-07-15', 230300, 140000, 86100, 0, 'Known historical net paycheck amount used for planning; update if current post-raise net is different.'),
-  ('McGraw Hill paycheck - second half', '2026-07-31', 230300, 65000, 86100, 0, 'Known historical net paycheck amount used for planning; update if current post-raise net is different.'),
-  ('Additional monthly check', '2026-07-31', 240100, 0, 50000, 125000, 'Monthly additional check earmarked for debt payoff and down payment savings.');
+  ('McGraw Hill paycheck - 15th', '2026-07-15', 230300, 140000, 86100, 0, 'Recurring McGraw Hill paycheck paid on the 15th. Update net amount if current post-raise net is different.'),
+  ('McGraw Hill paycheck - last workday', '2026-07-31', 230300, 65000, 86100, 0, 'Recurring McGraw Hill paycheck paid on the last workday of the month.'),
+  ('WISD paycheck', '2026-07-24', 240100, 0, 50000, 125000, 'Recurring WISD paycheck paid on the 24th.');
 
 INSERT INTO bills (name, due_day, amount_cents, category_id, is_fixed) VALUES
   ('Estimated housing payment / rent', 1, 165000, (SELECT id FROM budget_categories WHERE name = 'Housing'), 1),

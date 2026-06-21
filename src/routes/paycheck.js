@@ -1,7 +1,7 @@
 import { getBills, getBudgetCategories, getCreditCards, getPaychecks, getSavingsGoals, run } from '../db.js';
 import { formCents, formString } from '../services/forms.js';
 import { sumBy } from '../services/money.js';
-import { allocatePaycheck } from '../services/paycheckAllocation.js';
+import { allocatePaycheck, nextScheduledPaycheck, paycheckScheduleFor } from '../services/paycheckAllocation.js';
 import { renderPaycheckView } from '../views/paycheckView.js';
 
 export async function paycheck({ request, env, api }) {
@@ -18,8 +18,15 @@ export async function paycheck({ request, env, api }) {
     getSavingsGoals(env),
     getBudgetCategories(env)
   ]);
-  const amountCents = url.searchParams.has('amount') ? formLikeCents(url.searchParams.get('amount')) : paychecks[0]?.net_amount_cents || 0;
-  const payDate = url.searchParams.get('pay_date') || paychecks[0]?.pay_date || new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const defaultPaycheck = nextScheduledPaycheck(today, paychecks, true) || paychecks[0];
+  const payDate = url.searchParams.get('pay_date') || defaultPaycheck?.pay_date || today;
+  const selectedScheduledPaycheck = nextScheduledPaycheck(payDate, paychecks, true);
+  const amountCents = url.searchParams.has('amount')
+    ? formLikeCents(url.searchParams.get('amount'))
+    : selectedScheduledPaycheck?.pay_date === payDate
+      ? selectedScheduledPaycheck.net_amount_cents
+      : defaultPaycheck?.net_amount_cents || 0;
   const nextPayDate = url.searchParams.get('next_pay_date') || '';
   const allocation = allocatePaycheck({
     amountCents,
@@ -37,6 +44,7 @@ export async function paycheck({ request, env, api }) {
     bills,
     categories,
     allocation,
+    paycheckSchedule: paycheckScheduleFor(payDate, paychecks),
     monthlyIncomeCents: sumBy(paychecks, 'net_amount_cents'),
     plannedBillsCents: sumBy(paychecks, 'planned_bills_cents'),
     plannedDebtCents: sumBy(paychecks, 'planned_debt_cents'),

@@ -23,6 +23,11 @@ export function renderPaycheckView(model) {
     <td>${escapeHtml(bill.due_date)}</td>
     <td>${centsToDollars(bill.amount_cents)}</td>
   </tr>`);
+  const scheduleRows = model.paycheckSchedule.slice(0, 8).map((paycheck) => `<tr>
+    <td><a href="/paycheck?amount=${moneyInput(paycheck.net_amount_cents)}&pay_date=${escapeHtml(paycheck.pay_date)}">${escapeHtml(paycheck.name)}</a></td>
+    <td>${escapeHtml(paycheck.pay_date)}</td>
+    <td>${centsToDollars(paycheck.net_amount_cents)}</td>
+  </tr>`);
   const spendingRows = allocation.spendingEnvelopes.map((envelope) => `<tr>
     <td>${escapeHtml(envelope.name)}</td>
     <td>${centsToDollars(envelope.monthly_budget_cents)}</td>
@@ -82,6 +87,7 @@ export function renderPaycheckView(model) {
     </div>
 
     <div class="grid two">
+      ${section('Upcoming Paychecks', table(['Source', 'Pay Date', 'Net'], scheduleRows, 'No recurring paychecks found.'), 'flush')}
       ${section('Recommended Allocation', `
         <div class="allocation-grid featured">
           <article><span>Bills and loans due</span><strong>${centsToDollars(allocation.requiredBillsCents)}</strong></article>
@@ -94,11 +100,11 @@ export function renderPaycheckView(model) {
         </div>
         <p>This plan allocates exactly ${centsToDollars(allocation.totalAllocatedCents)} of this paycheck. Card payment includes ${centsToDollars(allocation.cardMinimumsDueCents)} toward card minimums due before the next paycheck plus ${centsToDollars(allocation.extraCardPaymentCents)} in extra payoff. ${allocation.priorityCard ? `Extra card dollars should go to ${escapeHtml(allocation.priorityCard.name)} first.` : 'Add cards to generate a debt-payment priority.'}</p>
       `)}
-      ${section('Known Spending Before Next Paycheck', table(['Envelope', 'Monthly Plan', 'This Paycheck', 'Monthly Remaining'], spendingRows, 'No variable spending envelopes found.'), 'flush')}
     </div>
     <div class="grid two">
       ${section('Bills And Loans Before Next Paycheck', table(['Bill', 'Due Date', 'Amount'], dueBillRows, 'No non-card bills due in this paycheck window.'), 'flush')}
       ${section('Card Minimums Before Next Paycheck', table(['Card Minimum', 'Due Date', 'Amount'], cardMinimumRows, 'No card minimums due in this paycheck window.'), 'flush')}
+      ${section('Known Spending Before Next Paycheck', table(['Envelope', 'Monthly Plan', 'This Paycheck', 'Monthly Remaining'], spendingRows, 'No variable spending envelopes found.'), 'flush')}
     </div>
     <details id="saved-paycheck-plans" class="manage-panel">
       <summary>Saved paycheck plans</summary>

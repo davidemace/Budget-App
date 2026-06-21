@@ -3,8 +3,52 @@ import { scoreFocusedRecommendation } from './recommendations.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export function paycheckScheduleFor(payDate, paychecks = []) {
+  const sourceAmounts = paycheckSourceAmounts(paychecks);
+  const anchor = parseLocalDate(payDate);
+  const scheduled = [];
+
+  for (let offset = -1; offset <= 2; offset += 1) {
+    const year = anchor.getFullYear();
+    const month = anchor.getMonth() + offset;
+    scheduled.push(
+      {
+        name: 'McGraw Hill paycheck - 15th',
+        pay_date: formatDate(new Date(year, month, 15)),
+        net_amount_cents: sourceAmounts.mcgraw15
+      },
+      {
+        name: 'WISD paycheck',
+        pay_date: formatDate(new Date(year, month, 24)),
+        net_amount_cents: sourceAmounts.wisd
+      },
+      {
+        name: 'McGraw Hill paycheck - last workday',
+        pay_date: formatDate(lastWorkdayOfMonth(year, month)),
+        net_amount_cents: sourceAmounts.mcgrawLastWorkday
+      }
+    );
+  }
+
+  return scheduled
+    .filter((paycheck) => paycheck.net_amount_cents > 0)
+    .sort((a, b) => a.pay_date.localeCompare(b.pay_date) || a.name.localeCompare(b.name));
+}
+
+export function nextScheduledPaycheck(payDate, paychecks = [], includeToday = false) {
+  const current = parseLocalDate(payDate);
+  return paycheckScheduleFor(payDate, paychecks)
+    .filter((paycheck) => {
+      const date = parseLocalDate(paycheck.pay_date);
+      return includeToday ? date >= current : date > current;
+    })[0];
+}
+
 export function inferNextPaycheckDate(payDate, paychecks = []) {
   const current = parseLocalDate(payDate);
+  const nextScheduled = nextScheduledPaycheck(payDate, paychecks);
+  if (nextScheduled) return nextScheduled.pay_date;
+
   const nextStored = paychecks
     .map((paycheck) => parseLocalDate(paycheck.pay_date))
     .filter((date) => date > current)
@@ -124,14 +168,56 @@ function variableSpendingEnvelopes(categories = [], payDate, paychecks = []) {
 
 function paychecksInMonth(payDate, paychecks = []) {
   const current = parseLocalDate(payDate);
-  const count = paychecks
+  const scheduledCount = paycheckScheduleFor(payDate, paychecks)
+    .filter((paycheck) => {
+      const date = parseLocalDate(paycheck.pay_date);
+      return date.getFullYear() === current.getFullYear() && date.getMonth() === current.getMonth();
+    })
+    .length;
+  if (scheduledCount) return scheduledCount;
+
+  const storedCount = paychecks
     .filter((paycheck) => {
       const date = parseLocalDate(paycheck.pay_date);
       return date.getFullYear() === current.getFullYear() && date.getMonth() === current.getMonth();
     })
     .length;
 
-  return Math.max(1, count || 2);
+  return Math.max(1, storedCount || 2);
+}
+
+function paycheckSourceAmounts(paychecks = []) {
+  const sources = {
+    mcgraw15: 0,
+    mcgrawLastWorkday: 0,
+    wisd: 0
+  };
+
+  for (const paycheck of paychecks) {
+    const name = normalizeName(paycheck.name);
+    const date = parseLocalDate(paycheck.pay_date);
+    const amount = Number(paycheck.net_amount_cents) || 0;
+
+    if (name.includes('wisd')) {
+      sources.wisd ||= amount;
+    } else if (name.includes('additional monthly check')) {
+      sources.wisd ||= amount;
+    } else if (name.includes('mcgraw') && (name.includes('first') || name.includes('15th') || date.getDate() === 15)) {
+      sources.mcgraw15 ||= amount;
+    } else if (name.includes('mcgraw') && (name.includes('second') || name.includes('last') || date.getDate() >= 28)) {
+      sources.mcgrawLastWorkday ||= amount;
+    }
+  }
+
+  return sources;
+}
+
+function lastWorkdayOfMonth(year, month) {
+  const date = new Date(year, month + 1, 0);
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() - 1);
+  }
+  return date;
 }
 
 function isCreditCardMinimumBill(bill, cards = []) {
